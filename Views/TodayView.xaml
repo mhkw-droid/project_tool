@@ -1,0 +1,151 @@
+<UserControl x:Class="TaskTool.Views.TodayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="{StaticResource BgBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0" Margin="0,0,12,0">
+                        <TextBox x:Name="QuickAddBox" Text="{Binding QuickAddText, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Padding="14,10" Margin="0"/>
+                        <TextBlock Text="Bugfix Login morgen 9:00 45m" Foreground="{StaticResource MutedTextBrush}" Margin="16,11,0,0"
+                                   IsHitTestVisible="False"
+                                   Visibility="{Binding QuickAddText, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                    </Grid>
+                    <Button Grid.Column="1" Content="＋" Width="44" Height="44" FontSize="22" Padding="0" Command="{Binding QuickAddCommand}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="22">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+                <TextBlock Text="Quick Add akzeptiert weiterhin das bestehende Parser-Format." FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="2,8,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Arbeitstag heute" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <TextBlock Text="{Binding WorkDaySummary}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                <TextBlock Text="Schnellbuttons" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <WrapPanel Margin="0,0,0,8">
+                    <Button Content="Kommen" Width="92" Command="{Binding ComeCommand}"/>
+                    <Button Content="Gehen" Width="92" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding GoCommand}"/>
+                    <Button Content="Pause Start" Width="110" Style="{StaticResource WarningButtonStyle}" Command="{Binding BreakStartCommand}"/>
+                    <Button Content="Pause Ende" Width="110" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BreakEndCommand}"/>
+                </WrapPanel>
+
+                <TextBlock Text="Manuelle Bearbeitung" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="Kommen (HH:mm)" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                        <TextBox Text="{Binding ComeTimeText, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                        <TextBlock Text="Gehen (HH:mm)" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                        <TextBox Text="{Binding GoTimeText, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Pausen" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+                        <ItemsControl ItemsSource="{Binding BreakRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0" Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding EndTime, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,0"/>
+                                        <TextBox Grid.Column="2" Text="{Binding Note, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Grid>
+
+                <WrapPanel>
+                    <Button Content="Pausezeile +" Width="120" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AddBreakRowCommand}"/>
+                    <Button Content="Tag manuell speichern" Width="180" Style="{StaticResource SuccessButtonStyle}" Command="{Binding ManualSaveCommand}"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Foreground="#FCA5A5" TextWrapping="Wrap" Margin="4,0,0,8"/>
+
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Tasks}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Status}" Value="Running">
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Status}" Value="Done">
+                                            <Setter Property="Opacity" Value="0.58"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"/>
+                                    <TextBlock Margin="0,4,0,6" Foreground="{StaticResource MutedTextBrush}"
+                                               Text="{Binding StartLocal, StringFormat=Start: {0:dd.MM HH:mm}}"/>
+                                    <WrapPanel>
+                                        <Border Background="#1E40AF" CornerRadius="8" Padding="8,3" Margin="0,0,8,0">
+                                            <TextBlock Text="{Binding Status}" FontSize="12" />
+                                        </Border>
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding TicketMinutesBooked, StringFormat=Ticket: {0} min}"/>
+                                    </WrapPanel>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <Button Content="▶" Width="36" Height="36" Padding="0" Command="{Binding DataContext.StartTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                    <Button Content="⏸" Width="36" Height="36" Padding="0" Style="{StaticResource WarningButtonStyle}" Command="{Binding DataContext.PauseTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                    <Button Content="■" Width="36" Height="36" Padding="0" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding DataContext.StopTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                    <Button Content="✓" Width="36" Height="36" Padding="0" Style="{StaticResource SuccessButtonStyle}" Command="{Binding DataContext.DoneTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.SelectTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                            </Border.InputBindings>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
