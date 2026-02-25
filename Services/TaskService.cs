@@ -259,6 +259,93 @@ ORDER BY ticket_minutes_booked DESC, title ASC LIMIT $max";
         return true;
     }
 
+
+    public List<TaskSegment> GetSegments(Guid taskId)
+    {
+        var list = new List<TaskSegment>();
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id,task_id,start_local,end_local,planned_minutes,outlook_entry_id FROM task_segments WHERE task_id=$id ORDER BY start_local";
+        cmd.Parameters.AddWithValue("$id", taskId.ToString());
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            list.Add(new TaskSegment
+            {
+                Id = Convert.ToInt64(r["id"]),
+                TaskId = Guid.Parse(r["task_id"].ToString()!),
+                StartLocal = DateTime.Parse(r["start_local"].ToString()!),
+                EndLocal = DateTime.Parse(r["end_local"].ToString()!),
+                PlannedMinutes = Convert.ToInt32(r["planned_minutes"]),
+                OutlookEntryId = r["outlook_entry_id"]?.ToString() ?? string.Empty
+            });
+        }
+        return list;
+    }
+
+    public void AddSegment(TaskSegment segment)
+    {
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO task_segments(task_id,start_local,end_local,planned_minutes,outlook_entry_id) VALUES ($t,$s,$e,$p,$o)";
+        cmd.Parameters.AddWithValue("$t", segment.TaskId.ToString());
+        cmd.Parameters.AddWithValue("$s", segment.StartLocal.ToString("s"));
+        cmd.Parameters.AddWithValue("$e", segment.EndLocal.ToString("s"));
+        cmd.Parameters.AddWithValue("$p", segment.PlannedMinutes);
+        cmd.Parameters.AddWithValue("$o", segment.OutlookEntryId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public bool SyncSegmentOutlook(TaskSegment segment, string title, string description, string ticketUrl)
+    {
+        LastError = string.Empty;
+        if (!_settings.Current.OutlookSyncEnabled)
+        {
+            LastError = "Outlook Sync ist deaktiviert.";
+            return false;
+        }
+
+        var body = $"{description}\n{ticketUrl}\nSegmentID: {segment.Id}\nTaskID: {segment.TaskId}";
+        var result = _outlook.UpsertBlock(segment.OutlookEntryId, title, body, segment.StartLocal, segment.EndLocal);
+        if (!result.ok)
+        {
+            LastError = $"Outlook Sync Fehler: {result.error}";
+            return false;
+        }
+
+        segment.OutlookEntryId = result.entryId;
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE task_segments SET outlook_entry_id=$o WHERE id=$id";
+        cmd.Parameters.AddWithValue("$o", segment.OutlookEntryId);
+        cmd.Parameters.AddWithValue("$id", segment.Id);
+        cmd.ExecuteNonQuery();
+        return true;
+    }
+
+    public bool DeleteSegmentOutlook(TaskSegment segment)
+    {
+        if (string.IsNullOrWhiteSpace(segment.OutlookEntryId)) return true;
+        var result = _outlook.DeleteBlock(segment.OutlookEntryId);
+        if (!result.ok)
+        {
+            LastError = result.error;
+            return false;
+        }
+
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE task_segments SET outlook_entry_id='' WHERE id=$id";
+        cmd.Parameters.AddWithValue("$id", segment.Id);
+        cmd.ExecuteNonQuery();
+        segment.OutlookEntryId = string.Empty;
+        return true;
+    }
+
     private bool TryParseDuration(string? text, out TimeSpan duration)
     {
         duration = TimeSpan.Zero;

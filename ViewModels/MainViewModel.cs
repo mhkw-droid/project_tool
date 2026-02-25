@@ -27,8 +27,8 @@ public class MainViewModel : ObservableObject
     public MainViewModel(TaskService taskService, WorkDayService workDayService, SettingsService settingsService, NotificationService notifications, LoggerService logger)
     {
         TodayViewModel = new TodayViewModel(taskService, workDayService, settingsService);
-        var week = new WeekViewModel(taskService);
-        var reports = new ReportsViewModel(taskService);
+        var week = new WeekViewModel(taskService, workDayService, settingsService);
+        var reports = new ReportsViewModel(taskService, workDayService, settingsService);
         var settings = new SettingsViewModel(settingsService);
 
         NavigationItems = new ObservableCollection<object> { TodayViewModel, week, reports, settings };

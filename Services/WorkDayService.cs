@@ -21,24 +21,34 @@ public class WorkDayService
         using var conn = new SqliteConnection(_db.ConnectionString);
         conn.Open();
         using var select = conn.CreateCommand();
-        select.CommandText = "SELECT day,come_local,go_local FROM work_days WHERE day=$d";
+        select.CommandText = "SELECT day,come_local,go_local,day_type,is_br,is_ho FROM work_days WHERE day=$d";
         select.Parameters.AddWithValue("$d", day);
         using var r = select.ExecuteReader();
-        if (r.Read())
-        {
-            return new WorkDayRecord
-            {
-                Day = day,
-                ComeLocal = DateTime.TryParse(r["come_local"]?.ToString(), out var c) ? c : null,
-                GoLocal = DateTime.TryParse(r["go_local"]?.ToString(), out var g) ? g : null
-            };
-        }
+        if (r.Read()) return MapWorkDay(r, day);
 
         using var ins = conn.CreateCommand();
-        ins.CommandText = "INSERT INTO work_days(day) VALUES ($d)";
+        ins.CommandText = "INSERT INTO work_days(day,day_type,is_br,is_ho) VALUES ($d,'Normal',0,0)";
         ins.Parameters.AddWithValue("$d", day);
         ins.ExecuteNonQuery();
-        return new WorkDayRecord { Day = day };
+        return new WorkDayRecord { Day = day, DayType = "Normal" };
+    }
+
+    public List<WorkDayRecord> GetWorkDaysInRange(DateTime from, DateTime to)
+    {
+        var list = new List<WorkDayRecord>();
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT day,come_local,go_local,day_type,is_br,is_ho FROM work_days WHERE day>= $f AND day<= $t ORDER BY day";
+        cmd.Parameters.AddWithValue("$f", from.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("$t", to.ToString("yyyy-MM-dd"));
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var day = r["day"].ToString() ?? string.Empty;
+            list.Add(MapWorkDay(r, day));
+        }
+        return list;
     }
 
     public List<BreakRecord> GetBreaks(string day)
@@ -88,6 +98,20 @@ public class WorkDayService
         cmd.ExecuteNonQuery();
     }
 
+    public void SetDayMarkers(string day, string dayType, bool isBr, bool isHo)
+    {
+        GetOrCreateDay(day);
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE work_days SET day_type=$t,is_br=$br,is_ho=$ho WHERE day=$d";
+        cmd.Parameters.AddWithValue("$t", dayType);
+        cmd.Parameters.AddWithValue("$br", isBr ? 1 : 0);
+        cmd.Parameters.AddWithValue("$ho", isHo ? 1 : 0);
+        cmd.Parameters.AddWithValue("$d", day);
+        cmd.ExecuteNonQuery();
+    }
+
     public void StartBreak(string day)
     {
         using var conn = new SqliteConnection(_db.ConnectionString);
@@ -119,7 +143,7 @@ public class WorkDayService
         using (var upsert = conn.CreateCommand())
         {
             upsert.Transaction = tx;
-            upsert.CommandText = @"INSERT INTO work_days(day,come_local,go_local) VALUES ($d,$c,$g)
+            upsert.CommandText = @"INSERT INTO work_days(day,come_local,go_local,day_type,is_br,is_ho) VALUES ($d,$c,$g,'Normal',0,0)
 ON CONFLICT(day) DO UPDATE SET come_local=$c, go_local=$g";
             upsert.Parameters.AddWithValue("$d", day);
             upsert.Parameters.AddWithValue("$c", come?.ToString("s") ?? (object)DBNull.Value);
@@ -149,4 +173,14 @@ ON CONFLICT(day) DO UPDATE SET come_local=$c, go_local=$g";
 
         tx.Commit();
     }
+
+    private static WorkDayRecord MapWorkDay(SqliteDataReader r, string day) => new()
+    {
+        Day = day,
+        ComeLocal = DateTime.TryParse(r["come_local"]?.ToString(), out var c) ? c : null,
+        GoLocal = DateTime.TryParse(r["go_local"]?.ToString(), out var g) ? g : null,
+        DayType = r["day_type"]?.ToString() ?? "Normal",
+        IsBr = Convert.ToInt32(r["is_br"]) == 1,
+        IsHo = Convert.ToInt32(r["is_ho"]) == 1
+    };
 }
