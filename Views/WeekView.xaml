@@ -27,7 +27,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Margin="0,0,10,12" MinWidth="230" Style="{StaticResource CardStyle}">
+                        <Border Margin="0,0,10,12" MinWidth="230">
                             <Border.Style>
                                 <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
                                     <Style.Triggers>
