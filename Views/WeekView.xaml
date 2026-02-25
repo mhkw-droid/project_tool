@@ -3,7 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="{StaticResource BgBrush}">
     <Grid Background="{StaticResource BgBrush}">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Style="{StaticResource CardStyle}">
             <DockPanel LastChildFill="False">
@@ -16,16 +20,33 @@
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="Transparent">
             <ItemsControl ItemsSource="{Binding Days}">
-                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" Columns="7"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1" Columns="7"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource CardStyle}" Margin="0,0,10,12" MinWidth="230">
+                        <Border Margin="0,0,10,12" MinWidth="230" Style="{StaticResource CardStyle}">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.SelectDayCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                            </Border.InputBindings>
                             <StackPanel>
                                 <TextBlock Text="{Binding DayLabel}" FontSize="17" FontWeight="Bold"/>
                                 <WrapPanel Margin="0,4,0,4">
-                                    <Border Background="#374151" CornerRadius="6" Padding="6,2" Margin="0,0,4,0"><TextBlock Text="{Binding DayType}" FontSize="11"/></Border>
-                                    <Border Background="#1E3A8A" CornerRadius="6" Padding="6,2" Margin="0,0,4,0" Visibility="{Binding IsHo, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="HO" FontSize="11"/></Border>
-                                    <Border Background="#7C2D12" CornerRadius="6" Padding="6,2" Margin="0,0,4,0" Visibility="{Binding IsBr, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="BR" FontSize="11"/></Border>
+                                    <Border Style="{StaticResource BadgeStyle}"><TextBlock Text="{Binding DayType}"/></Border>
+                                    <Border Style="{StaticResource BadgeStyle}" Visibility="{Binding IsHo, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="HO"/></Border>
+                                    <Border Style="{StaticResource BadgeStyle}" Visibility="{Binding IsBr, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="BR"/></Border>
                                 </WrapPanel>
                                 <TextBlock Text="{Binding Summary}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,0,0,6"/>
 
@@ -42,14 +63,22 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Text="Keine Tasks" Foreground="{StaticResource MutedTextBrush}" Visibility="Collapsed">
-                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Tasks.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                                </TextBlock>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
+
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Markierungen für ausgewählten Tag:" Margin="0,0,12,0"/>
+                <Button Content="Normal" Width="80" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SetDayTypeNormalCommand}"/>
+                <Button Content="UL" Width="60" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SetDayTypeUlCommand}"/>
+                <Button Content="AM" Width="60" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SetDayTypeAmCommand}"/>
+                <ToggleButton Content="HO" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding SelectedIsHo, Mode=OneWay}" Command="{Binding ToggleHoCommand}"/>
+                <ToggleButton Content="BR" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding SelectedIsBr, Mode=OneWay}" Command="{Binding ToggleBrCommand}"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

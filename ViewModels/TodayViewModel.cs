@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Windows;
 using System.Windows.Threading;
 using TaskTool.Infrastructure;
@@ -37,12 +36,14 @@ public class TodayViewModel : ObservableObject
                 Raise(nameof(IsTaskSelected));
                 Raise(nameof(OutlookBlockerButtonText));
                 Raise(nameof(OutlookBlockerCanSync));
+                Raise(nameof(ComputedEndText));
+                RaiseCommandStates();
+                UpdateTimerDisplay();
             }
         }
     }
 
     public bool IsTaskSelected => SelectedTask != null;
-
     public string DateTimeFormat => string.IsNullOrWhiteSpace(_settings.Current.DateTimeFormat) ? "yyyy-MM-dd HH:mm" : _settings.Current.DateTimeFormat;
     public bool AllowMultiDaySegments => _settings.Current.AllowMultiDayTaskPlanning;
 
@@ -68,12 +69,12 @@ public class TodayViewModel : ObservableObject
     public string TimerDisplay { get => _timerDisplay; set => Set(ref _timerDisplay, value); }
 
     private DateTime? _selectedStartDate = DateTime.Today;
-    public DateTime? SelectedStartDate { get => _selectedStartDate; set { if (Set(ref _selectedStartDate, value)) Raise(nameof(ComputedEndText)); } }
+    public DateTime? SelectedStartDate { get => _selectedStartDate; set { if (Set(ref _selectedStartDate, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); RaiseCommandStates(); } } }
 
     private int _selectedHour = DateTime.Now.Hour;
     public int SelectedHour { get => _selectedHour; set { if (Set(ref _selectedHour, value)) Raise(nameof(ComputedEndText)); } }
 
-    private int _selectedMinute = 0;
+    private int _selectedMinute;
     public int SelectedMinute { get => _selectedMinute; set { if (Set(ref _selectedMinute, value)) Raise(nameof(ComputedEndText)); } }
 
     private int _selectedDurationMinutes = 30;
@@ -100,7 +101,7 @@ public class TodayViewModel : ObservableObject
         }
     }
 
-    public bool OutlookBlockerCanSync => SelectedStartDate.HasValue;
+    public bool OutlookBlockerCanSync => SelectedTask != null && SelectedStartDate.HasValue;
     public string OutlookBlockerButtonText => string.IsNullOrWhiteSpace(SelectedTask?.OutlookEntryId) ? "Outlook Blocker erstellen" : "Outlook Blocker aktualisieren";
 
     public RelayCommand QuickAddCommand { get; }
@@ -122,6 +123,11 @@ public class TodayViewModel : ObservableObject
     public RelayCommand SyncOutlookBlockerCommand { get; }
     public RelayCommand DeleteOutlookBlockerCommand { get; }
     public RelayCommand SaveMarkersCommand { get; }
+    public RelayCommand SetDayTypeNormalCommand { get; }
+    public RelayCommand SetDayTypeAmCommand { get; }
+    public RelayCommand SetDayTypeUlCommand { get; }
+    public RelayCommand ToggleBrCommand { get; }
+    public RelayCommand ToggleHoCommand { get; }
     public RelayCommand AddSegmentCommand { get; }
     public RelayCommand SyncAllSegmentsCommand { get; }
 
@@ -141,12 +147,12 @@ public class TodayViewModel : ObservableObject
         SaveCommand = new RelayCommand(SaveTask, () => SelectedTask != null);
         DeleteCommand = new RelayCommand(DeleteTask, () => SelectedTask != null);
         DoneCommand = new RelayCommand(MarkDone, () => SelectedTask != null);
-        StartTimerCommand = new RelayCommand(() => WithTask(_tasks.StartTimer));
-        PauseTimerCommand = new RelayCommand(() => WithTask(_tasks.PauseTimer));
-        StopTimerCommand = new RelayCommand(() => WithTask(_tasks.StopTimer));
-        Add15Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 15)));
-        Add30Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 30)));
-        Add60Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 60)));
+        StartTimerCommand = new RelayCommand(() => WithTask(_tasks.StartTimer), () => SelectedTask != null);
+        PauseTimerCommand = new RelayCommand(() => WithTask(_tasks.PauseTimer), () => SelectedTask != null);
+        StopTimerCommand = new RelayCommand(() => WithTask(_tasks.StopTimer), () => SelectedTask != null);
+        Add15Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 15)), () => SelectedTask != null);
+        Add30Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 30)), () => SelectedTask != null);
+        Add60Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 60)), () => SelectedTask != null);
         ComeCommand = new RelayCommand(() => { _workDays.SetCome(DateTime.Now); Load(); });
         GoCommand = new RelayCommand(() => { _workDays.SetGo(DateTime.Now); Load(); });
         BreakStartCommand = new RelayCommand(() => { _workDays.StartBreak(DateTime.Today.ToString("yyyy-MM-dd")); Load(); });
@@ -156,6 +162,11 @@ public class TodayViewModel : ObservableObject
         SyncOutlookBlockerCommand = new RelayCommand(SyncOutlookBlocker, () => SelectedTask != null && OutlookBlockerCanSync);
         DeleteOutlookBlockerCommand = new RelayCommand(DeleteOutlookBlocker, () => SelectedTask != null);
         SaveMarkersCommand = new RelayCommand(SaveMarkers);
+        SetDayTypeNormalCommand = new RelayCommand(() => SetDayType("Normal"));
+        SetDayTypeAmCommand = new RelayCommand(() => SetDayType("AM"));
+        SetDayTypeUlCommand = new RelayCommand(() => SetDayType("UL"));
+        ToggleBrCommand = new RelayCommand(() => { IsBr = !IsBr; SaveMarkers(); });
+        ToggleHoCommand = new RelayCommand(() => { IsHo = !IsHo; SaveMarkers(); });
         AddSegmentCommand = new RelayCommand(AddSegment, () => SelectedTask != null && AllowMultiDaySegments);
         SyncAllSegmentsCommand = new RelayCommand(SyncAllSegments, () => SelectedTask != null && AllowMultiDaySegments);
 
@@ -172,12 +183,32 @@ public class TodayViewModel : ObservableObject
         Load();
     }
 
+    private void RaiseCommandStates()
+    {
+        SaveCommand.RaiseCanExecuteChanged();
+        DeleteCommand.RaiseCanExecuteChanged();
+        DoneCommand.RaiseCanExecuteChanged();
+        StartTimerCommand.RaiseCanExecuteChanged();
+        PauseTimerCommand.RaiseCanExecuteChanged();
+        StopTimerCommand.RaiseCanExecuteChanged();
+        Add15Command.RaiseCanExecuteChanged();
+        Add30Command.RaiseCanExecuteChanged();
+        Add60Command.RaiseCanExecuteChanged();
+        SyncOutlookBlockerCommand.RaiseCanExecuteChanged();
+        DeleteOutlookBlockerCommand.RaiseCanExecuteChanged();
+        AddSegmentCommand.RaiseCanExecuteChanged();
+        SyncAllSegmentsCommand.RaiseCanExecuteChanged();
+    }
+
     private void Load()
     {
         var selectedId = SelectedTask?.Id;
         Tasks.Clear();
         foreach (var task in _tasks.GetTasksForDay(DateTime.Today)) Tasks.Add(task);
-        SelectedTask = selectedId.HasValue ? Tasks.FirstOrDefault(t => t.Id == selectedId.Value) ?? Tasks.FirstOrDefault() : Tasks.FirstOrDefault();
+
+        SelectedTask = selectedId.HasValue
+            ? Tasks.FirstOrDefault(t => t.Id == selectedId.Value) ?? Tasks.FirstOrDefault()
+            : Tasks.FirstOrDefault();
 
         var day = DateTime.Today.ToString("yyyy-MM-dd");
         var wd = _workDays.GetOrCreateDay(day);
@@ -185,9 +216,7 @@ public class TodayViewModel : ObservableObject
 
         BreakRows.Clear();
         foreach (var br in breaks)
-        {
             BreakRows.Add(new BreakEditRow { StartTime = br.StartLocal.ToString("HH:mm"), EndTime = br.EndLocal?.ToString("HH:mm") ?? string.Empty, Note = br.Note });
-        }
         if (BreakRows.Count == 0) BreakRows.Add(new BreakEditRow());
 
         DayType = wd.DayType;
@@ -200,15 +229,14 @@ public class TodayViewModel : ObservableObject
         var presence = (wd.ComeLocal.HasValue && wd.GoLocal.HasValue) ? wd.GoLocal.Value - wd.ComeLocal.Value : TimeSpan.Zero;
         var pause = breaks.Where(b => b.EndLocal.HasValue).Aggregate(TimeSpan.Zero, (acc, b) => acc + (b.EndLocal!.Value - b.StartLocal));
         var net = presence - pause;
-        var ticket = Tasks.Sum(t => t.TicketMinutesBooked);
-
         var target = (wd.DayType == "UL" || wd.DayType == "AM") ? 0 : _settings.Current.GetTargetMinutes(DateTime.Today.DayOfWeek);
         var overtime = (int)net.TotalMinutes - target;
         var monthOvertime = CalculateMonthOvertime();
 
-        WorkDaySummary = $"Kommen: {Fmt(wd.ComeLocal)}   Gehen: {Fmt(wd.GoLocal)}   Typ: {wd.DayType} {(wd.IsBr ? "BR" : "")} {(wd.IsHo ? "HO" : "")}";
-        TodayTotals = $"Soll heute: {FmtMin(target)} | Ist (Netto): {FmtMin((int)net.TotalMinutes)} | Überstunden heute: {FmtMin(overtime)} | Überstunden Monat: {FmtMin(monthOvertime)}";
+        WorkDaySummary = $"Kommen: {Fmt(wd.ComeLocal)}   Gehen: {Fmt(wd.GoLocal)}   Typ: {wd.DayType}";
+        TodayTotals = $"Soll: {FmtMin(target)} | Ist: {FmtMin((int)net.TotalMinutes)} | Ü heute: {FmtMin(overtime)} | Ü Monat: {FmtMin(monthOvertime)}";
         StatusMessage = _tasks.LastError;
+        RaiseCommandStates();
         UpdateTimerDisplay();
     }
 
@@ -235,26 +263,26 @@ public class TodayViewModel : ObservableObject
         return total;
     }
 
+    private void SetDayType(string type)
+    {
+        DayType = type;
+        SaveMarkers();
+    }
+
+    private void SaveMarkers()
+    {
+        _workDays.SetDayMarkers(DateTime.Today.ToString("yyyy-MM-dd"), DayType, IsBr, IsHo);
+        Load();
+    }
+
     private void LoadTaskPlanning()
     {
-        if (SelectedTask == null) return;
-        if (SelectedTask.StartLocal.HasValue)
-        {
-            SelectedStartDate = SelectedTask.StartLocal.Value.Date;
-            SelectedHour = SelectedTask.StartLocal.Value.Hour;
-            SelectedMinute = (SelectedTask.StartLocal.Value.Minute / 5) * 5;
-        }
-        else
-        {
-            SelectedStartDate = DateTime.Today;
-            SelectedHour = DateTime.Now.Hour;
-            SelectedMinute = 0;
-        }
-
-        if (SelectedTask.StartLocal.HasValue && SelectedTask.EndLocal.HasValue)
-        {
-            SelectedDurationMinutes = Math.Max(15, (int)(SelectedTask.EndLocal.Value - SelectedTask.StartLocal.Value).TotalMinutes);
-        }
+        if (SelectedTask?.StartLocal is not DateTime start) return;
+        SelectedStartDate = start.Date;
+        SelectedHour = start.Hour;
+        SelectedMinute = (start.Minute / 5) * 5;
+        if (SelectedTask.EndLocal.HasValue)
+            SelectedDurationMinutes = Math.Max(15, (int)(SelectedTask.EndLocal.Value - start).TotalMinutes);
     }
 
     private void LoadSegments()
@@ -264,32 +292,13 @@ public class TodayViewModel : ObservableObject
         foreach (var seg in _tasks.GetSegments(SelectedTask.Id)) Segments.Add(seg);
     }
 
-    private void AddSegment()
-    {
-        if (SelectedTask == null || !TryBuildStart(out var start)) return;
-        var dur = GetDurationMinutes();
-        var seg = new TaskSegment { TaskId = SelectedTask.Id, StartLocal = start, EndLocal = start.AddMinutes(dur), PlannedMinutes = dur };
-        _tasks.AddSegment(seg);
-        LoadSegments();
-    }
-
-    private void SyncAllSegments()
-    {
-        if (SelectedTask == null) return;
-        foreach (var seg in Segments) _tasks.SyncSegmentOutlook(seg, SelectedTask.Title, SelectedTask.Description, SelectedTask.TicketUrl);
-        StatusMessage = _tasks.LastError;
-        LoadSegments();
-    }
-
-    private static string Fmt(DateTime? dt) => dt?.ToString("HH:mm") ?? "--:--";
-    private static string FmtMin(int mins) => $"{mins / 60}h {Math.Abs(mins % 60):00}m";
-
     private void QuickAdd()
     {
         var task = _tasks.ParseQuickAdd(QuickAddText);
         _tasks.CreateTask(task);
         QuickAddText = string.Empty;
         Load();
+        SelectedTask = Tasks.FirstOrDefault(t => t.Id == task.Id) ?? task;
     }
 
     private void SaveTask()
@@ -301,6 +310,7 @@ public class TodayViewModel : ObservableObject
             SelectedTask.EndLocal = start.AddMinutes(GetDurationMinutes());
         }
         _tasks.UpdateTask(SelectedTask);
+        StatusMessage = "Task gespeichert.";
         Load();
     }
 
@@ -314,10 +324,20 @@ public class TodayViewModel : ObservableObject
 
     private int GetDurationMinutes() => int.TryParse(ManualDurationMinutesText, out var parsed) && parsed > 0 ? parsed : SelectedDurationMinutes;
 
-    private void SaveMarkers()
+    private void AddSegment()
     {
-        _workDays.SetDayMarkers(DateTime.Today.ToString("yyyy-MM-dd"), DayType, IsBr, IsHo);
-        Load();
+        if (SelectedTask == null || !TryBuildStart(out var start)) return;
+        var dur = GetDurationMinutes();
+        _tasks.AddSegment(new TaskSegment { TaskId = SelectedTask.Id, StartLocal = start, EndLocal = start.AddMinutes(dur), PlannedMinutes = dur });
+        LoadSegments();
+    }
+
+    private void SyncAllSegments()
+    {
+        if (SelectedTask == null) return;
+        foreach (var seg in Segments) _tasks.SyncSegmentOutlook(seg, SelectedTask.Title, SelectedTask.Description, SelectedTask.TicketUrl);
+        StatusMessage = _tasks.LastError;
+        LoadSegments();
     }
 
     private void DeleteTask() { if (SelectedTask == null) return; _tasks.DeleteTask(SelectedTask); SelectedTask = null; Load(); }
@@ -325,8 +345,7 @@ public class TodayViewModel : ObservableObject
 
     private void SyncOutlookBlocker()
     {
-        if (SelectedTask == null) return;
-        if (!TryBuildStart(out var start)) { StatusMessage = "Bitte Startdatum und Uhrzeit wählen."; return; }
+        if (SelectedTask == null || !TryBuildStart(out var start)) return;
         SelectedTask.StartLocal = start;
         SelectedTask.EndLocal = start.AddMinutes(GetDurationMinutes());
         var ok = _tasks.SyncOutlookBlocker(SelectedTask);
@@ -349,11 +368,13 @@ public class TodayViewModel : ObservableObject
             var day = DateTime.Today;
             var come = ParseLocalTime(day, ComeTimeText);
             var go = ParseLocalTime(day, GoTimeText);
-            var mappedBreaks = BreakRows.Select(row => new { row, start = ParseLocalTime(day, row.StartTime) })
+            var breaks = BreakRows
+                .Select(row => new { row, start = ParseLocalTime(day, row.StartTime) })
                 .Where(x => x.start.HasValue)
                 .Select(x => new BreakRecord { Day = day.ToString("yyyy-MM-dd"), StartLocal = x.start!.Value, EndLocal = ParseLocalTime(day, x.row.EndTime), Note = x.row.Note })
                 .ToList();
-            _workDays.SaveManualDay(day.ToString("yyyy-MM-dd"), come, go, mappedBreaks);
+
+            _workDays.SaveManualDay(day.ToString("yyyy-MM-dd"), come, go, breaks);
             _workDays.SetDayMarkers(day.ToString("yyyy-MM-dd"), DayType, IsBr, IsHo);
             Load();
         }
@@ -367,6 +388,9 @@ public class TodayViewModel : ObservableObject
         if (TimeSpan.TryParse(text, out var time)) return day.Date + time;
         return null;
     }
+
+    private static string Fmt(DateTime? dt) => dt?.ToString("HH:mm") ?? "--:--";
+    private static string FmtMin(int mins) => $"{mins / 60}h {Math.Abs(mins % 60):00}m";
 
     private void OnCardTaskAction(TaskItem? task, Action<TaskItem> action) { if (task == null) return; SelectedTask = task; action(task); Load(); }
     private void WithTask(Action<TaskItem> action) { if (SelectedTask == null) { MessageBox.Show("Bitte zuerst eine Aufgabe auswählen."); return; } action(SelectedTask); Load(); }

@@ -10,23 +10,24 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Style="{StaticResource CardStyle}">
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <Grid Grid.Column="0" Margin="0,0,12,0">
-                        <TextBox Text="{Binding QuickAddText, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Padding="14,10" Margin="0"/>
-                        <TextBlock Text="Bugfix Login morgen 9:00 45m" Foreground="{StaticResource MutedTextBrush}" Margin="16,11,0,0" IsHitTestVisible="False" Visibility="{Binding QuickAddText, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
-                    </Grid>
-                    <Button Grid.Column="1" Content="＋" Width="44" Height="44" FontSize="22" Padding="0" Command="{Binding QuickAddCommand}"/>
-                </Grid>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding QuickAddText, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Padding="14,10" Margin="0"/>
+                <Button Grid.Column="1" Content="＋" Width="44" Height="44" FontSize="22" Padding="0" Command="{Binding QuickAddCommand}"/>
+            </Grid>
         </Border>
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}">
             <StackPanel>
-                <TextBlock Text="Arbeitstag heute" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <TextBlock Text="{Binding TodayTotals}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <TextBlock Text="Arbeitstag heute" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding TodayTotals}" FontWeight="SemiBold" Margin="0,4,0,6"/>
                 <TextBlock Text="{Binding WorkDaySummary}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                <WrapPanel Margin="0,0,0,8">
+                    <Border Style="{StaticResource BadgeStyle}"><TextBlock Text="{Binding DayType}"/></Border>
+                    <Border Style="{StaticResource BadgeStyle}" Visibility="{Binding IsHo, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="HO"/></Border>
+                    <Border Style="{StaticResource BadgeStyle}" Visibility="{Binding IsBr, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="BR"/></Border>
+                </WrapPanel>
 
                 <WrapPanel>
                     <Button Content="Kommen" Width="92" Command="{Binding ComeCommand}"/>
@@ -37,18 +38,14 @@
 
                 <TextBlock Text="Tagesmarker" FontWeight="SemiBold" Margin="0,4,0,4"/>
                 <WrapPanel>
-                    <ComboBox Width="120" SelectedValue="{Binding DayType}" SelectedValuePath="Content">
-                        <ComboBoxItem Content="Normal"/>
-                        <ComboBoxItem Content="AM"/>
-                        <ComboBoxItem Content="UL"/>
-                    </ComboBox>
-                    <CheckBox Content="BR" IsChecked="{Binding IsBr}" Margin="8,6,8,0"/>
-                    <CheckBox Content="HO" IsChecked="{Binding IsHo}" Margin="8,6,8,0"/>
-                    <Button Content="Marker speichern" Width="140" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SaveMarkersCommand}"/>
+                    <ToggleButton Content="Normal" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding DayType, Converter={StaticResource EqualityConverter}, ConverterParameter=Normal}" Command="{Binding SetDayTypeNormalCommand}"/>
+                    <ToggleButton Content="UL" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding DayType, Converter={StaticResource EqualityConverter}, ConverterParameter=UL}" Command="{Binding SetDayTypeUlCommand}"/>
+                    <ToggleButton Content="AM" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding DayType, Converter={StaticResource EqualityConverter}, ConverterParameter=AM}" Command="{Binding SetDayTypeAmCommand}"/>
+                    <ToggleButton Content="HO" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding IsHo}" Command="{Binding SaveMarkersCommand}"/>
+                    <ToggleButton Content="BR" Style="{StaticResource TogglePillStyle}" IsChecked="{Binding IsBr}" Command="{Binding SaveMarkersCommand}"/>
                 </WrapPanel>
 
-                <TextBlock Text="Manuelle Bearbeitung" FontWeight="SemiBold" Margin="0,8,0,6"/>
-                <Grid Margin="0,0,0,8">
+                <Grid Margin="0,8,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,10,0"><TextBlock Text="Kommen (HH:mm)" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/><TextBox Text="{Binding ComeTimeText, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,0"/></StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,10,0"><TextBlock Text="Gehen (HH:mm)" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/><TextBox Text="{Binding GoTimeText, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,0"/></StackPanel>
@@ -68,6 +65,7 @@
                         </ItemsControl>
                     </StackPanel>
                 </Grid>
+
                 <WrapPanel>
                     <Button Content="Pausezeile +" Width="120" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AddBreakRowCommand}"/>
                     <Button Content="Tag manuell speichern" Width="180" Style="{StaticResource SuccessButtonStyle}" Command="{Binding ManualSaveCommand}"/>
@@ -95,7 +93,7 @@
                                 <StackPanel>
                                     <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"/>
                                     <TextBlock Margin="0,4,0,6" Foreground="{StaticResource MutedTextBrush}" Text="{Binding StartLocal, StringFormat=Start: {0:dd.MM HH:mm}}"/>
-                                    <WrapPanel><Border Background="#1E40AF" CornerRadius="8" Padding="8,3" Margin="0,0,8,0"><TextBlock Text="{Binding Status}" FontSize="12" /></Border><TextBlock VerticalAlignment="Center" Text="{Binding TicketMinutesBooked, StringFormat=Ticket: {0} min}"/></WrapPanel>
+                                    <WrapPanel><Border Style="{StaticResource BadgeStyle}"><TextBlock Text="{Binding Status}"/></Border><TextBlock VerticalAlignment="Center" Text="{Binding TicketMinutesBooked, StringFormat=Ticket: {0} min}"/></WrapPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                     <Button Content="▶" Width="36" Height="36" Padding="0" Command="{Binding DataContext.StartTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>

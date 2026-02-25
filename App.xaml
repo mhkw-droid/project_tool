@@ -13,6 +13,7 @@
 
             <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
             <conv:StringEmptyToVisibilityConverter x:Key="StringEmptyToVisibilityConverter"/>
+            <conv:EqualityToBooleanConverter x:Key="EqualityConverter"/>
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
             <DataTemplate DataType="{x:Type vm:TodayViewModel}">
