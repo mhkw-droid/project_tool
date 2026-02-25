@@ -30,24 +30,35 @@ public class ReportsViewModel : ObservableObject
 
     private void Refresh()
     {
-        var month = DateTime.Today;
-        TotalMinutes = _tasks.GetMonthTicketMinutes(month);
-        MonthSummary = $"{TotalMinutes / 60}h {TotalMinutes % 60}m";
-
-        Breakdown.Clear();
-        Breakdown.Add($"Gesamt Minuten: {TotalMinutes}");
-        Breakdown.Add($"Arbeitstage-Ø (22 Tage): {(TotalMinutes / 22) / 60}h {(TotalMinutes / 22) % 60}m");
-        Breakdown.Add($"Heute gebucht (aus Monatswert grob): {(TotalMinutes / Math.Max(1, DateTime.Today.Day)) / 60}h {(TotalMinutes / Math.Max(1, DateTime.Today.Day)) % 60}m");
-
-        TopTasks.Clear();
-        foreach (var (title, mins) in _tasks.GetTopTasksForMonth(month))
+        try
         {
-            TopTasks.Add(new ReportTaskItem
+            var month = DateTime.Today;
+            TotalMinutes = _tasks.GetMonthTicketMinutes(month);
+            MonthSummary = $"{TotalMinutes / 60}h {TotalMinutes % 60}m";
+
+            Breakdown.Clear();
+            Breakdown.Add($"Gesamt Minuten: {TotalMinutes}");
+            Breakdown.Add($"Arbeitstage-Ø (22 Tage): {(TotalMinutes / 22) / 60}h {(TotalMinutes / 22) % 60}m");
+            Breakdown.Add($"Heute gebucht (Monat/Tag): {(TotalMinutes / Math.Max(1, DateTime.Today.Day)) / 60}h {(TotalMinutes / Math.Max(1, DateTime.Today.Day)) % 60}m");
+
+            TopTasks.Clear();
+            foreach (var (title, mins) in _tasks.GetTopTasksForMonth(month))
             {
-                Title = title,
-                Minutes = mins,
-                DurationText = $"{mins / 60}h {mins % 60}m"
-            });
+                TopTasks.Add(new ReportTaskItem
+                {
+                    Title = title,
+                    Minutes = mins,
+                    DurationText = $"{mins / 60}h {mins % 60}m"
+                });
+            }
+        }
+        catch
+        {
+            TotalMinutes = 0;
+            MonthSummary = "0h 0m";
+            Breakdown.Clear();
+            Breakdown.Add("Report konnte nicht geladen werden.");
+            TopTasks.Clear();
         }
     }
 
