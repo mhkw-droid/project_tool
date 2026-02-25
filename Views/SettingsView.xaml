@@ -1,11 +1,16 @@
 <UserControl x:Class="TaskTool.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Margin="12">
-        <CheckBox Content="Outlook Sync aktiv" IsChecked="{Binding OutlookSyncEnabled}" Margin="0,0,0,8"/>
-        <TextBlock Text="Outlook Kategorie"/>
-        <TextBox Text="{Binding OutlookCategoryName}" Margin="0,2,0,8" Width="220"/>
-        <TextBlock Text="Reminder Vorlauf Minuten"/>
-        <TextBox Text="{Binding ReminderLeadMinutes}" Margin="0,2,0,8" Width="120"/>
+    <StackPanel>
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Einstellungen" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <CheckBox Content="Outlook Sync aktiv" IsChecked="{Binding OutlookSyncEnabled}" Margin="0,0,0,12"/>
+                <TextBlock Text="Outlook Kategorie" Foreground="{StaticResource MutedTextBrush}"/>
+                <TextBox Text="{Binding OutlookCategoryName}" Width="260"/>
+                <TextBlock Text="Reminder Vorlauf Minuten" Foreground="{StaticResource MutedTextBrush}"/>
+                <TextBox Text="{Binding ReminderLeadMinutes}" Width="120"/>
+            </StackPanel>
+        </Border>
     </StackPanel>
 </UserControl>

@@ -14,9 +14,10 @@ public class WorkDayService
         _logger = logger;
     }
 
-    public WorkDayRecord GetOrCreateToday()
+    public WorkDayRecord GetOrCreateToday() => GetOrCreateDay(DateTime.Today.ToString("yyyy-MM-dd"));
+
+    public WorkDayRecord GetOrCreateDay(string day)
     {
-        var day = DateTime.Today.ToString("yyyy-MM-dd");
         using var conn = new SqliteConnection(_db.ConnectionString);
         conn.Open();
         using var select = conn.CreateCommand();
@@ -107,5 +108,45 @@ public class WorkDayService
         cmd.Parameters.AddWithValue("$d", day);
         cmd.Parameters.AddWithValue("$e", DateTime.Now.ToString("s"));
         cmd.ExecuteNonQuery();
+    }
+
+    public void SaveManualDay(string day, DateTime? come, DateTime? go, IEnumerable<BreakRecord> breaks)
+    {
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var tx = conn.BeginTransaction();
+
+        using (var upsert = conn.CreateCommand())
+        {
+            upsert.Transaction = tx;
+            upsert.CommandText = @"INSERT INTO work_days(day,come_local,go_local) VALUES ($d,$c,$g)
+ON CONFLICT(day) DO UPDATE SET come_local=$c, go_local=$g";
+            upsert.Parameters.AddWithValue("$d", day);
+            upsert.Parameters.AddWithValue("$c", come?.ToString("s") ?? (object)DBNull.Value);
+            upsert.Parameters.AddWithValue("$g", go?.ToString("s") ?? (object)DBNull.Value);
+            upsert.ExecuteNonQuery();
+        }
+
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM breaks WHERE day=$d";
+            del.Parameters.AddWithValue("$d", day);
+            del.ExecuteNonQuery();
+        }
+
+        foreach (var br in breaks)
+        {
+            using var ins = conn.CreateCommand();
+            ins.Transaction = tx;
+            ins.CommandText = "INSERT INTO breaks(day,start_local,end_local,note) VALUES ($d,$s,$e,$n)";
+            ins.Parameters.AddWithValue("$d", day);
+            ins.Parameters.AddWithValue("$s", br.StartLocal.ToString("s"));
+            ins.Parameters.AddWithValue("$e", br.EndLocal?.ToString("s") ?? (object)DBNull.Value);
+            ins.Parameters.AddWithValue("$n", string.IsNullOrWhiteSpace(br.Note) ? "pause" : br.Note);
+            ins.ExecuteNonQuery();
+        }
+
+        tx.Commit();
     }
 }

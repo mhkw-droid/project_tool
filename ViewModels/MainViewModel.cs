@@ -7,17 +7,31 @@ namespace TaskTool.ViewModels;
 public class MainViewModel : ObservableObject
 {
     public ObservableCollection<object> NavigationItems { get; }
+    public TodayViewModel TodayViewModel { get; }
+
     private object _selectedView;
-    public object SelectedView { get => _selectedView; set => Set(ref _selectedView, value); }
+    public object SelectedView
+    {
+        get => _selectedView;
+        set
+        {
+            if (Set(ref _selectedView, value))
+            {
+                Raise(nameof(IsTodaySelected));
+            }
+        }
+    }
+
+    public bool IsTodaySelected => SelectedView is TodayViewModel;
 
     public MainViewModel(TaskService taskService, WorkDayService workDayService, SettingsService settingsService, NotificationService notifications, LoggerService logger)
     {
-        var today = new TodayViewModel(taskService, workDayService);
+        TodayViewModel = new TodayViewModel(taskService, workDayService);
         var week = new WeekViewModel(taskService);
         var reports = new ReportsViewModel(taskService);
         var settings = new SettingsViewModel(settingsService);
 
-        NavigationItems = new ObservableCollection<object> { today, week, reports, settings };
-        _selectedView = today;
+        NavigationItems = new ObservableCollection<object> { TodayViewModel, week, reports, settings };
+        _selectedView = TodayViewModel;
     }
 }

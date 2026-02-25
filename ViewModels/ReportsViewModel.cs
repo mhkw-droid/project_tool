@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using TaskTool.Infrastructure;
 using TaskTool.Services;
 
@@ -7,11 +8,17 @@ public class ReportsViewModel : ObservableObject
 {
     public string Title => "Reports";
     public string MonthSummary { get; }
+    public int TotalMinutes { get; }
+    public ObservableCollection<string> Breakdown { get; } = new();
 
     public ReportsViewModel(TaskService tasks)
     {
-        var mins = tasks.GetMonthTicketMinutes(DateTime.Today);
-        MonthSummary = $"Gebuchte Ticketzeit im Monat: {mins / 60}h {mins % 60}m";
+        TotalMinutes = tasks.GetMonthTicketMinutes(DateTime.Today);
+        MonthSummary = $"{TotalMinutes / 60}h {TotalMinutes % 60}m";
+
+        Breakdown.Add($"Gesamt Minuten: {TotalMinutes}");
+        Breakdown.Add($"Arbeitstage-Ø (22 Tage): {(TotalMinutes / 22) / 60}h {(TotalMinutes / 22) % 60}m");
+        Breakdown.Add($"Aktuelle Woche grob: {(TotalMinutes / 4) / 60}h {(TotalMinutes / 4) % 60}m");
     }
 
     public override string ToString() => Title;

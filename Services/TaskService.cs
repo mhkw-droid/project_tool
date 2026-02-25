@@ -135,6 +135,30 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
         UpdateTask(task);
     }
 
+
+    public TimeSpan GetTrackedDuration(Guid taskId)
+    {
+        var total = TimeSpan.Zero;
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT start_utc,end_utc FROM time_logs WHERE task_id=$id";
+        cmd.Parameters.AddWithValue("$id", taskId.ToString());
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var start = DateTime.Parse(reader["start_utc"].ToString()!).ToUniversalTime();
+            var end = DateTime.TryParse(reader["end_utc"]?.ToString(), out var parsedEnd)
+                ? parsedEnd.ToUniversalTime()
+                : DateTime.UtcNow;
+            if (end > start)
+            {
+                total += end - start;
+            }
+        }
+        return total;
+    }
+
     public int GetMonthTicketMinutes(DateTime month)
     {
         using var conn = new SqliteConnection(_db.ConnectionString);
