@@ -7,8 +7,6 @@
     <Color x:Key="TextColor">#E5E7EB</Color>
     <Color x:Key="MutedTextColor">#94A3B8</Color>
     <Color x:Key="AccentColor">#3B82F6</Color>
-    <Color x:Key="SuccessColor">#10B981</Color>
-    <Color x:Key="WarningColor">#F59E0B</Color>
 
     <SolidColorBrush x:Key="BgBrush" Color="{StaticResource BgColor}"/>
     <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}"/>
@@ -24,6 +22,42 @@
         <Setter Property="FontFamily" Value="Segoe UI"/>
     </Style>
 
+    <Style TargetType="UserControl">
+        <Setter Property="Background" Value="{StaticResource BgBrush}"/>
+    </Style>
+
+    <Style TargetType="Grid">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style TargetType="ScrollViewer">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+
+    <Style TargetType="ListView">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+
+    <Style TargetType="ListBoxItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <Style TargetType="ListViewItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <Style TargetType="Border">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
     </Style>
@@ -35,6 +69,21 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="Margin" Value="0,2,0,8"/>
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="Background" Value="#0B1220"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Margin" Value="0,2,0,8"/>
+    </Style>
+
+    <Style TargetType="DatePicker">
+        <Setter Property="Background" Value="#0B1220"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
     </Style>
 
     <Style x:Key="BaseButtonStyle" TargetType="Button">
@@ -54,35 +103,17 @@
             </Setter.Value>
         </Setter>
         <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Opacity" Value="0.92"/>
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-                <Setter Property="Opacity" Value="0.85"/>
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.55"/>
-            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.92"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
         </Style.Triggers>
     </Style>
 
     <Style TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}"/>
-
-    <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
-        <Setter Property="Background" Value="#334155"/>
-    </Style>
-
-    <Style x:Key="SuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
-        <Setter Property="Background" Value="#065F46"/>
-    </Style>
-
-    <Style x:Key="WarningButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
-        <Setter Property="Background" Value="#92400E"/>
-    </Style>
-
-    <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
-        <Setter Property="Background" Value="#7F1D1D"/>
-    </Style>
+    <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}"><Setter Property="Background" Value="#334155"/></Style>
+    <Style x:Key="SuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}"><Setter Property="Background" Value="#065F46"/></Style>
+    <Style x:Key="WarningButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}"><Setter Property="Background" Value="#92400E"/></Style>
+    <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}"><Setter Property="Background" Value="#7F1D1D"/></Style>
 
     <Style x:Key="CardStyle" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource CardBrush}"/>

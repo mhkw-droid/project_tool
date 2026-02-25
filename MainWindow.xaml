@@ -25,7 +25,7 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Column="1" Padding="16">
+        <Border Grid.Column="1" Padding="16" Background="{StaticResource BgBrush}">
             <ContentControl Content="{Binding SelectedView}" />
         </Border>
 

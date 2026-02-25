@@ -41,6 +41,17 @@ public class SettingsViewModel : ObservableObject
         }
     }
 
+    public string DateTimeFormat
+    {
+        get => _settings.Current.DateTimeFormat;
+        set
+        {
+            _settings.Current.DateTimeFormat = value;
+            _settings.Save();
+            Raise();
+        }
+    }
+
     public SettingsViewModel(SettingsService settings) => _settings = settings;
 
     public override string ToString() => Title;

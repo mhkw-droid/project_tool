@@ -30,10 +30,7 @@ public class TaskService
         cmd.CommandText = "SELECT * FROM tasks WHERE date(start_local)=date($d) OR start_local IS NULL ORDER BY start_local";
         cmd.Parameters.AddWithValue("$d", day.ToString("yyyy-MM-dd"));
         using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            list.Add(MapTask(reader));
-        }
+        while (reader.Read()) list.Add(MapTask(reader));
         return list;
     }
 
@@ -62,8 +59,6 @@ public class TaskService
 VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket,$created,$updated)";
         BindTask(cmd, task);
         cmd.ExecuteNonQuery();
-
-        SyncOutlook(task);
         return task;
     }
 
@@ -76,14 +71,13 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
         cmd.CommandText = @"UPDATE tasks SET title=$title,description=$desc,ticket_url=$url,start_local=$start,end_local=$end,status=$status,priority=$priority,tags=$tags,outlook_entry_id=$entry,ticket_minutes_booked=$ticket,updated_utc=$updated WHERE id=$id";
         BindTask(cmd, task);
         cmd.ExecuteNonQuery();
-
-        SyncOutlook(task);
     }
 
     public void DeleteTask(TaskItem task)
     {
         var deleteResult = _outlook.DeleteBlock(task.OutlookEntryId);
         if (!deleteResult.ok) LastError = deleteResult.error;
+
         using var conn = new SqliteConnection(_db.ConnectionString);
         conn.Open();
         using var cmd = conn.CreateCommand();
@@ -135,7 +129,6 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
         UpdateTask(task);
     }
 
-
     public TimeSpan GetTrackedDuration(Guid taskId)
     {
         var total = TimeSpan.Zero;
@@ -151,10 +144,7 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
             var end = DateTime.TryParse(reader["end_utc"]?.ToString(), out var parsedEnd)
                 ? parsedEnd.ToUniversalTime()
                 : DateTime.UtcNow;
-            if (end > start)
-            {
-                total += end - start;
-            }
+            if (end > start) total += end - start;
         }
         return total;
     }
@@ -167,6 +157,26 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
         cmd.CommandText = "SELECT COALESCE(SUM(ticket_minutes_booked),0) FROM tasks WHERE strftime('%Y-%m', COALESCE(start_local, created_utc)) = $m";
         cmd.Parameters.AddWithValue("$m", month.ToString("yyyy-MM"));
         return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    public List<(string Title, int Minutes)> GetTopTasksForMonth(DateTime month, int max = 5)
+    {
+        var result = new List<(string Title, int Minutes)>();
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"SELECT title, ticket_minutes_booked FROM tasks
+WHERE strftime('%Y-%m', COALESCE(start_local, created_utc)) = $m
+ORDER BY ticket_minutes_booked DESC, title ASC LIMIT $max";
+        cmd.Parameters.AddWithValue("$m", month.ToString("yyyy-MM"));
+        cmd.Parameters.AddWithValue("$max", max);
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add((reader["title"]?.ToString() ?? "(ohne Titel)", Convert.ToInt32(reader["ticket_minutes_booked"])));
+        }
+        return result;
     }
 
     public TaskItem ParseQuickAdd(string input)
@@ -187,6 +197,68 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
             .ToList();
     }
 
+    public bool SyncOutlookBlocker(TaskItem task)
+    {
+        LastError = string.Empty;
+        if (!_settings.Current.OutlookSyncEnabled)
+        {
+            LastError = "Outlook Sync ist deaktiviert.";
+            return false;
+        }
+
+        if (!task.StartLocal.HasValue || !task.EndLocal.HasValue)
+        {
+            LastError = "Für Blocker-Sync sind Start und Ende erforderlich.";
+            return false;
+        }
+
+        var body = $"{task.Description}\n{task.TicketUrl}\nTaskID: {task.Id}";
+        var result = _outlook.UpsertBlock(task.OutlookEntryId, task.Title, body, task.StartLocal.Value, task.EndLocal.Value);
+        if (!result.ok)
+        {
+            LastError = $"Outlook Sync Fehler: {result.error}";
+            return false;
+        }
+
+        task.OutlookEntryId = result.entryId;
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE tasks SET outlook_entry_id=$e, updated_utc=$u WHERE id=$id";
+        cmd.Parameters.AddWithValue("$e", task.OutlookEntryId);
+        cmd.Parameters.AddWithValue("$u", DateTime.UtcNow.ToString("O"));
+        cmd.Parameters.AddWithValue("$id", task.Id.ToString());
+        cmd.ExecuteNonQuery();
+        return true;
+    }
+
+    public bool DeleteOutlookBlocker(TaskItem task)
+    {
+        LastError = string.Empty;
+        if (string.IsNullOrWhiteSpace(task.OutlookEntryId))
+        {
+            LastError = "Kein Outlook Blocker vorhanden.";
+            return false;
+        }
+
+        var result = _outlook.DeleteBlock(task.OutlookEntryId);
+        if (!result.ok)
+        {
+            LastError = $"Outlook Delete Fehler: {result.error}";
+            return false;
+        }
+
+        task.OutlookEntryId = string.Empty;
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE tasks SET outlook_entry_id='', updated_utc=$u WHERE id=$id";
+        cmd.Parameters.AddWithValue("$u", DateTime.UtcNow.ToString("O"));
+        cmd.Parameters.AddWithValue("$id", task.Id.ToString());
+        cmd.ExecuteNonQuery();
+        return true;
+    }
+
     private bool TryParseDuration(string? text, out TimeSpan duration)
     {
         duration = TimeSpan.Zero;
@@ -203,31 +275,6 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
             return true;
         }
         return TimeSpan.TryParse(text, out duration);
-    }
-
-    private void SyncOutlook(TaskItem task)
-    {
-        LastError = string.Empty;
-        if (!_settings.Current.OutlookSyncEnabled) return;
-        if (!task.StartLocal.HasValue || !task.EndLocal.HasValue) return;
-
-        var body = $"{task.Description}\n{task.TicketUrl}\nTaskID: {task.Id}";
-        var result = _outlook.UpsertBlock(task.OutlookEntryId, task.Title, body, task.StartLocal.Value, task.EndLocal.Value);
-        if (result.ok)
-        {
-            task.OutlookEntryId = result.entryId;
-            using var conn = new SqliteConnection(_db.ConnectionString);
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE tasks SET outlook_entry_id=$e WHERE id=$id";
-            cmd.Parameters.AddWithValue("$e", task.OutlookEntryId);
-            cmd.Parameters.AddWithValue("$id", task.Id.ToString());
-            cmd.ExecuteNonQuery();
-        }
-        else
-        {
-            LastError = $"Outlook Sync Fehler: {result.error}";
-        }
     }
 
     private void StopOpenLog(Guid taskId, string note)

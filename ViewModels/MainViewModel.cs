@@ -26,7 +26,7 @@ public class MainViewModel : ObservableObject
 
     public MainViewModel(TaskService taskService, WorkDayService workDayService, SettingsService settingsService, NotificationService notifications, LoggerService logger)
     {
-        TodayViewModel = new TodayViewModel(taskService, workDayService);
+        TodayViewModel = new TodayViewModel(taskService, workDayService, settingsService);
         var week = new WeekViewModel(taskService);
         var reports = new ReportsViewModel(taskService);
         var settings = new SettingsViewModel(settingsService);

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Threading;
 using TaskTool.Infrastructure;
@@ -11,11 +12,13 @@ public class TodayViewModel : ObservableObject
 {
     private readonly TaskService _tasks;
     private readonly WorkDayService _workDays;
+    private readonly SettingsService _settings;
     private readonly DispatcherTimer _clock;
 
     public string Title => "Heute";
     public ObservableCollection<TaskItem> Tasks { get; } = new();
     public ObservableCollection<BreakEditRow> BreakRows { get; } = new();
+    public ObservableCollection<int> DurationOptions { get; } = new() { 15, 30, 45, 60, 90, 120 };
 
     private TaskItem? _selectedTask;
     public TaskItem? SelectedTask
@@ -25,7 +28,29 @@ public class TodayViewModel : ObservableObject
         {
             if (Set(ref _selectedTask, value))
             {
+                if (value?.StartLocal is DateTime start)
+                {
+                    StartLocalText = start.ToString(DateTimeFormat, CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    StartLocalText = string.Empty;
+                }
+
+                if (value?.StartLocal.HasValue == true && value.EndLocal.HasValue)
+                {
+                    var diff = (int)Math.Max(0, (value.EndLocal.Value - value.StartLocal.Value).TotalMinutes);
+                    SelectedDurationMinutes = DurationOptions.Contains(diff) ? diff : DurationOptions[0];
+                }
+                else
+                {
+                    SelectedDurationMinutes = DurationOptions[0];
+                }
+
                 Raise(nameof(IsTaskSelected));
+                Raise(nameof(OutlookBlockerButtonText));
+                Raise(nameof(OutlookBlockerState));
+                Raise(nameof(ComputedEndText));
                 UpdateTimerDisplay();
             }
         }
@@ -51,6 +76,56 @@ public class TodayViewModel : ObservableObject
     private string _timerDisplay = "00:00:00";
     public string TimerDisplay { get => _timerDisplay; set => Set(ref _timerDisplay, value); }
 
+    private string _startLocalText = string.Empty;
+    public string StartLocalText
+    {
+        get => _startLocalText;
+        set
+        {
+            if (Set(ref _startLocalText, value))
+            {
+                Raise(nameof(ComputedEndText));
+            }
+        }
+    }
+
+    private int _selectedDurationMinutes = 30;
+    public int SelectedDurationMinutes
+    {
+        get => _selectedDurationMinutes;
+        set
+        {
+            if (Set(ref _selectedDurationMinutes, value))
+            {
+                Raise(nameof(ComputedEndText));
+            }
+        }
+    }
+
+    public string DateTimeFormat => string.IsNullOrWhiteSpace(_settings.Current.DateTimeFormat)
+        ? "yyyy-MM-dd HH:mm"
+        : _settings.Current.DateTimeFormat;
+
+    public string ComputedEndText
+    {
+        get
+        {
+            if (TryParseStartLocal(StartLocalText, out var start))
+            {
+                return start.AddMinutes(SelectedDurationMinutes).ToString(DateTimeFormat, CultureInfo.InvariantCulture);
+            }
+            return "-";
+        }
+    }
+
+    public string OutlookBlockerButtonText => string.IsNullOrWhiteSpace(SelectedTask?.OutlookEntryId)
+        ? "Outlook Blocker erstellen"
+        : "Outlook Blocker aktualisieren";
+
+    public string OutlookBlockerState => string.IsNullOrWhiteSpace(SelectedTask?.OutlookEntryId)
+        ? "Blocker: nicht vorhanden"
+        : "Blocker: erstellt";
+
     public RelayCommand RefreshCommand { get; }
     public RelayCommand QuickAddCommand { get; }
     public RelayCommand SaveCommand { get; }
@@ -61,12 +136,15 @@ public class TodayViewModel : ObservableObject
     public RelayCommand StopTimerCommand { get; }
     public RelayCommand Add15Command { get; }
     public RelayCommand Add30Command { get; }
+    public RelayCommand Add60Command { get; }
     public RelayCommand ComeCommand { get; }
     public RelayCommand GoCommand { get; }
     public RelayCommand BreakStartCommand { get; }
     public RelayCommand BreakEndCommand { get; }
     public RelayCommand ManualSaveCommand { get; }
     public RelayCommand AddBreakRowCommand { get; }
+    public RelayCommand SyncOutlookBlockerCommand { get; }
+    public RelayCommand DeleteOutlookBlockerCommand { get; }
 
     public RelayCommand<TaskItem> SelectTaskCommand { get; }
     public RelayCommand<TaskItem> StartTaskCommand { get; }
@@ -74,10 +152,11 @@ public class TodayViewModel : ObservableObject
     public RelayCommand<TaskItem> StopTaskCommand { get; }
     public RelayCommand<TaskItem> DoneTaskCommand { get; }
 
-    public TodayViewModel(TaskService tasks, WorkDayService workDays)
+    public TodayViewModel(TaskService tasks, WorkDayService workDays, SettingsService settings)
     {
         _tasks = tasks;
         _workDays = workDays;
+        _settings = settings;
 
         RefreshCommand = new RelayCommand(Load);
         QuickAddCommand = new RelayCommand(QuickAdd);
@@ -89,12 +168,15 @@ public class TodayViewModel : ObservableObject
         StopTimerCommand = new RelayCommand(() => WithTask(_tasks.StopTimer));
         Add15Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 15)));
         Add30Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 30)));
+        Add60Command = new RelayCommand(() => WithTask(t => _tasks.AddTicketMinutes(t, 60)));
         ComeCommand = new RelayCommand(() => { _workDays.SetCome(DateTime.Now); Load(); });
         GoCommand = new RelayCommand(() => { _workDays.SetGo(DateTime.Now); Load(); });
         BreakStartCommand = new RelayCommand(() => { _workDays.StartBreak(DateTime.Today.ToString("yyyy-MM-dd")); Load(); });
         BreakEndCommand = new RelayCommand(() => { _workDays.EndBreak(DateTime.Today.ToString("yyyy-MM-dd")); Load(); });
         ManualSaveCommand = new RelayCommand(SaveManualDay);
         AddBreakRowCommand = new RelayCommand(() => BreakRows.Add(new BreakEditRow()));
+        SyncOutlookBlockerCommand = new RelayCommand(SyncOutlookBlocker, () => SelectedTask != null);
+        DeleteOutlookBlockerCommand = new RelayCommand(DeleteOutlookBlocker, () => SelectedTask != null);
 
         SelectTaskCommand = new RelayCommand<TaskItem>(task => SelectedTask = task, task => task != null);
         StartTaskCommand = new RelayCommand<TaskItem>(task => OnCardTaskAction(task, _tasks.StartTimer));
@@ -113,10 +195,7 @@ public class TodayViewModel : ObservableObject
     {
         var selectedId = SelectedTask?.Id;
         Tasks.Clear();
-        foreach (var task in _tasks.GetTasksForDay(DateTime.Today))
-        {
-            Tasks.Add(task);
-        }
+        foreach (var task in _tasks.GetTasksForDay(DateTime.Today)) Tasks.Add(task);
 
         SelectedTask = selectedId.HasValue
             ? Tasks.FirstOrDefault(t => t.Id == selectedId.Value) ?? Tasks.FirstOrDefault()
@@ -148,6 +227,7 @@ public class TodayViewModel : ObservableObject
         WorkDaySummary = $"Kommen: {Fmt(wd.ComeLocal)}   Gehen: {Fmt(wd.GoLocal)}\nAnwesenheit: {presence:hh\\:mm}   Pause gesamt: {pause:hh\\:mm}\nNetto: {net:hh\\:mm}   Ticketminuten: {ticket}";
 
         StatusMessage = _tasks.LastError;
+        Raise(nameof(DateTimeFormat));
         UpdateTimerDisplay();
     }
 
@@ -164,7 +244,15 @@ public class TodayViewModel : ObservableObject
     private void SaveTask()
     {
         if (SelectedTask == null) return;
+
+        if (TryParseStartLocal(StartLocalText, out var start))
+        {
+            SelectedTask.StartLocal = start;
+            SelectedTask.EndLocal = start.AddMinutes(SelectedDurationMinutes);
+        }
+
         _tasks.UpdateTask(SelectedTask);
+        StatusMessage = "Task gespeichert.";
         Load();
     }
 
@@ -181,6 +269,37 @@ public class TodayViewModel : ObservableObject
         if (SelectedTask == null) return;
         _tasks.MarkDone(SelectedTask);
         Load();
+    }
+
+    private void SyncOutlookBlocker()
+    {
+        if (SelectedTask == null) return;
+
+        if (TryParseStartLocal(StartLocalText, out var start))
+        {
+            SelectedTask.StartLocal = start;
+            SelectedTask.EndLocal = start.AddMinutes(SelectedDurationMinutes);
+        }
+
+        var ok = _tasks.SyncOutlookBlocker(SelectedTask);
+        StatusMessage = ok ? "Outlook Blocker erfolgreich synchronisiert." : _tasks.LastError;
+        Load();
+    }
+
+    private void DeleteOutlookBlocker()
+    {
+        if (SelectedTask == null) return;
+        var ok = _tasks.DeleteOutlookBlocker(SelectedTask);
+        StatusMessage = ok ? "Outlook Blocker gelöscht." : _tasks.LastError;
+        Load();
+    }
+
+    private bool TryParseStartLocal(string input, out DateTime value)
+    {
+        if (DateTime.TryParseExact(input, DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out value))
+            return true;
+
+        return DateTime.TryParse(input, out value);
     }
 
     private void SaveManualDay()
