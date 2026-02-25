@@ -1,0 +1,9 @@
+<UserControl x:Class="TaskTool.Views.WeekView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="12">
+        <GroupBox Header="Nächste 7 Tage">
+            <ListBox ItemsSource="{Binding Items}" />
+        </GroupBox>
+    </Grid>
+</UserControl>

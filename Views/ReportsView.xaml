@@ -1,0 +1,9 @@
+<UserControl x:Class="TaskTool.Views.ReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="12">
+        <GroupBox Header="Monatsreport">
+            <TextBlock Margin="8" FontSize="20" Text="{Binding MonthSummary}" />
+        </GroupBox>
+    </Grid>
+</UserControl>
