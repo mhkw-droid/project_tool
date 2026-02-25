@@ -98,7 +98,7 @@
             <ItemsControl ItemsSource="{Binding Tasks}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource CardStyle}">
+                        <Border>
                             <Border.Style>
                                 <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
                                     <Style.Triggers>
