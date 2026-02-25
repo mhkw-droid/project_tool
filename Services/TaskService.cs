@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using TaskStatus = TaskTool.Models.TaskStatus;
 using TaskTool.Models;
 
 namespace TaskTool.Services;
