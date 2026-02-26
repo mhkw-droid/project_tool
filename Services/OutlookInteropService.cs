@@ -1,5 +1,4 @@
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -34,7 +33,7 @@ public class OutlookInteropService
 
         try
         {
-            return ExecuteOnSta(() =>
+            return ExecuteOnSta<(bool ok, string entryId, string error)>(() =>
             {
                 var outlookType = Type.GetTypeFromProgID("Outlook.Application");
                 if (outlookType == null)
@@ -106,7 +105,7 @@ public class OutlookInteropService
 
         try
         {
-            return ExecuteOnSta(() =>
+            return ExecuteOnSta<(bool ok, string error)>(() =>
             {
                 var outlookType = Type.GetTypeFromProgID("Outlook.Application");
                 if (outlookType == null)
@@ -176,14 +175,7 @@ public class OutlookInteropService
 
     private static object? CreateOrAttachOutlook(Type outlookType)
     {
-        try
-        {
-            return Marshal.GetActiveObject("Outlook.Application");
-        }
-        catch
-        {
-            return Activator.CreateInstance(outlookType);
-        }
+        return Activator.CreateInstance(outlookType);
     }
 
     private static void TryLogon(object nameSpace)
