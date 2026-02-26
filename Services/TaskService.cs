@@ -244,6 +244,19 @@ ORDER BY ticket_minutes_booked DESC, title ASC LIMIT $max";
         return true;
     }
 
+
+    public bool TestOutlookConnection()
+    {
+        LastError = string.Empty;
+        var result = _outlook.TestConnection();
+        if (!result.ok)
+        {
+            LastError = $"Outlook Verbindungstest fehlgeschlagen: {result.error}";
+            return false;
+        }
+
+        return true;
+    }
     public bool DeleteOutlookBlocker(TaskItem task)
     {
         LastError = string.Empty;

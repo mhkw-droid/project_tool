@@ -1,5 +1,6 @@
-using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using Outlook = Microsoft.Office.Interop.Outlook;
 
@@ -24,16 +25,27 @@ public class OutlookInteropService
         if (string.IsNullOrWhiteSpace(title))
             return (false, existingEntryId ?? string.Empty, "Titel fehlt.");
 
-        if (start == default || end == default || end <= start)
+        if (start == default || end == default || end <= start || start == DateTime.MinValue || end == DateTime.MinValue)
             return (false, existingEntryId ?? string.Empty, "Ungültiger Zeitraum: Ende muss nach Start liegen.");
 
         try
         {
             return ExecuteOnSta(() =>
             {
-                var app = new Outlook.Application();
+                var outlookType = Type.GetTypeFromProgID("Outlook.Application");
+                if (outlookType == null)
+                    return (false, existingEntryId ?? string.Empty, "Outlook nicht installiert (ProgID nicht gefunden).");
+
+                var app = CreateOrAttachOutlook(outlookType);
+                if (app == null)
+                    return (false, existingEntryId ?? string.Empty, "Outlook konnte nicht gestartet/verbunden werden.");
+
                 var ns = app.GetNamespace("MAPI");
-                ns.Logon(Missing.Value, Missing.Value, false, false);
+                TryLogon(ns);
+
+                var calendar = ns.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderCalendar);
+                if (calendar == null)
+                    return (false, existingEntryId ?? string.Empty, "Standard-Kalender nicht verfügbar.");
 
                 Outlook.AppointmentItem item;
                 if (!string.IsNullOrWhiteSpace(existingEntryId))
@@ -64,7 +76,7 @@ public class OutlookInteropService
         }
         catch (Exception ex)
         {
-            _logger.Error(BuildOutlookExceptionLog("UpsertBlock", ex));
+            _logger.Error(BuildOutlookExceptionLog("UpsertBlock", ex, start, end));
             return (false, existingEntryId ?? string.Empty, BuildUserFacingOutlookError(ex));
         }
     }
@@ -78,9 +90,16 @@ public class OutlookInteropService
         {
             return ExecuteOnSta(() =>
             {
-                var app = new Outlook.Application();
+                var outlookType = Type.GetTypeFromProgID("Outlook.Application");
+                if (outlookType == null)
+                    return (false, "Outlook nicht installiert (ProgID nicht gefunden).");
+
+                var app = CreateOrAttachOutlook(outlookType);
+                if (app == null)
+                    return (false, "Outlook konnte nicht gestartet/verbunden werden.");
+
                 var ns = app.GetNamespace("MAPI");
-                ns.Logon(Missing.Value, Missing.Value, false, false);
+                TryLogon(ns);
 
                 var item = ns.GetItemFromID(entryId);
                 if (item is not Outlook.AppointmentItem appt)
@@ -92,8 +111,61 @@ public class OutlookInteropService
         }
         catch (Exception ex)
         {
-            _logger.Error(BuildOutlookExceptionLog("DeleteBlock", ex));
+            _logger.Error(BuildOutlookExceptionLog("DeleteBlock", ex, null, null));
             return (false, BuildUserFacingOutlookError(ex));
+        }
+    }
+
+    public (bool ok, string error) TestConnection()
+    {
+        var start = DateTime.Now.AddMinutes(5);
+        var end = start.AddMinutes(5);
+
+        try
+        {
+            var upsert = UpsertBlock(string.Empty, "TaskTool Test", "Test appointment", start, end);
+            if (!upsert.ok)
+                return (false, upsert.error);
+
+            var del = DeleteBlock(upsert.entryId);
+            if (!del.ok)
+                return (false, del.error);
+
+            return (true, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(BuildOutlookExceptionLog("TestConnection", ex, start, end));
+            return (false, BuildUserFacingOutlookError(ex));
+        }
+    }
+
+    private static Outlook.Application? CreateOrAttachOutlook(Type outlookType)
+    {
+        try
+        {
+            var running = Marshal.GetActiveObject("Outlook.Application");
+            if (running is Outlook.Application runningApp)
+                return runningApp;
+        }
+        catch
+        {
+            // ignore and fallback to creating app
+        }
+
+        var created = Activator.CreateInstance(outlookType);
+        return created as Outlook.Application;
+    }
+
+    private static void TryLogon(Outlook.NameSpace ns)
+    {
+        try
+        {
+            ns.Logon("", "", Missing.Value, Missing.Value);
+        }
+        catch
+        {
+            // Often already logged on; safe to continue.
         }
     }
 
@@ -135,9 +207,29 @@ public class OutlookInteropService
         return ex.Message;
     }
 
-    private static string BuildOutlookExceptionLog(string operation, Exception ex)
+    private static string BuildOutlookExceptionLog(string operation, Exception ex, DateTime? start, DateTime? end)
     {
-        var hResult = ex.HResult;
-        return $"Outlook {operation} failed | Message: {ex.Message} | HResult: 0x{hResult:X8} | Type: {ex.GetType().FullName}\n{ex.StackTrace}";
+        var sb = new StringBuilder();
+        sb.AppendLine($"Outlook {operation} failed");
+        sb.AppendLine($"ThreadId: {Environment.CurrentManagedThreadId}");
+        sb.AppendLine($"ApartmentState: {Thread.CurrentThread.GetApartmentState()}");
+        sb.AppendLine($"OutlookInstalled: {Type.GetTypeFromProgID("Outlook.Application") != null}");
+        sb.AppendLine($"StartLocal: {(start.HasValue ? start.Value.ToString("O") : "null")}");
+        sb.AppendLine($"EndLocal: {(end.HasValue ? end.Value.ToString("O") : "null")}");
+        sb.AppendLine($"DurationMinutes: {(start.HasValue && end.HasValue ? (end.Value - start.Value).TotalMinutes.ToString("0.##") : "null")}");
+        sb.AppendLine($"Exception: {ex}");
+        sb.AppendLine($"HResult: 0x{ex.HResult:X8}");
+
+        var inner = ex.InnerException;
+        var depth = 0;
+        while (inner != null)
+        {
+            sb.AppendLine($"Inner[{depth}] Type={inner.GetType().FullName} HResult=0x{inner.HResult:X8} Message={inner.Message}");
+            sb.AppendLine(inner.ToString());
+            inner = inner.InnerException;
+            depth++;
+        }
+
+        return sb.ToString();
     }
 }

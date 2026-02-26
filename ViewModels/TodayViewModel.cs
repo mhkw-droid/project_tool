@@ -38,6 +38,8 @@ public class TodayViewModel : ObservableObject
                 Raise(nameof(IsTaskSelected));
                 Raise(nameof(OutlookBlockerButtonText));
                 Raise(nameof(OutlookBlockerCanSync));
+                Raise(nameof(IsSchedulingValid));
+                Raise(nameof(OutlookSyncHint));
                 Raise(nameof(ComputedEndText));
                 RaiseCommandStates();
                 UpdateTimerDisplay();
@@ -102,19 +104,19 @@ public class TodayViewModel : ObservableObject
     public string TimerDisplay { get => _timerDisplay; set => Set(ref _timerDisplay, value); }
 
     private DateTime? _selectedStartDate = DateTime.Today;
-    public DateTime? SelectedStartDate { get => _selectedStartDate; set { if (Set(ref _selectedStartDate, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); RaiseCommandStates(); } } }
+    public DateTime? SelectedStartDate { get => _selectedStartDate; set { if (Set(ref _selectedStartDate, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); Raise(nameof(IsSchedulingValid)); Raise(nameof(OutlookSyncHint)); RaiseCommandStates(); } } }
 
     private int _selectedHour = DateTime.Now.Hour;
-    public int SelectedHour { get => _selectedHour; set { if (Set(ref _selectedHour, value)) Raise(nameof(ComputedEndText)); } }
+    public int SelectedHour { get => _selectedHour; set { if (Set(ref _selectedHour, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); Raise(nameof(IsSchedulingValid)); Raise(nameof(OutlookSyncHint)); RaiseCommandStates(); } } }
 
     private int _selectedMinute;
-    public int SelectedMinute { get => _selectedMinute; set { if (Set(ref _selectedMinute, value)) Raise(nameof(ComputedEndText)); } }
+    public int SelectedMinute { get => _selectedMinute; set { if (Set(ref _selectedMinute, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); Raise(nameof(IsSchedulingValid)); Raise(nameof(OutlookSyncHint)); RaiseCommandStates(); } } }
 
     private int _selectedDurationMinutes = 30;
-    public int SelectedDurationMinutes { get => _selectedDurationMinutes; set { if (Set(ref _selectedDurationMinutes, value)) Raise(nameof(ComputedEndText)); } }
+    public int SelectedDurationMinutes { get => _selectedDurationMinutes; set { if (Set(ref _selectedDurationMinutes, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); Raise(nameof(IsSchedulingValid)); Raise(nameof(OutlookSyncHint)); RaiseCommandStates(); } } }
 
     private string _manualDurationMinutesText = string.Empty;
-    public string ManualDurationMinutesText { get => _manualDurationMinutesText; set { if (Set(ref _manualDurationMinutesText, value)) Raise(nameof(ComputedEndText)); } }
+    public string ManualDurationMinutesText { get => _manualDurationMinutesText; set { if (Set(ref _manualDurationMinutesText, value)) { Raise(nameof(ComputedEndText)); Raise(nameof(OutlookBlockerCanSync)); Raise(nameof(IsSchedulingValid)); Raise(nameof(OutlookSyncHint)); RaiseCommandStates(); } } }
 
     private string _dayType = "Normal";
     public string DayType { get => _dayType; set => Set(ref _dayType, value); }
@@ -134,7 +136,9 @@ public class TodayViewModel : ObservableObject
         }
     }
 
-    public bool OutlookBlockerCanSync => SelectedTask != null && SelectedStartDate.HasValue;
+    public bool OutlookBlockerCanSync => SelectedTask != null && IsSchedulingValid;
+    public bool IsSchedulingValid => TryBuildStart(out var start) && start > DateTime.MinValue && GetDurationMinutes() > 0;
+    public string OutlookSyncHint => IsSchedulingValid ? "" : "Bitte gültigen Start + Dauer setzen (Ende > Start).";
     public string OutlookBlockerButtonText => string.IsNullOrWhiteSpace(SelectedTask?.OutlookEntryId) ? "Outlook Blocker erstellen" : "Outlook Blocker aktualisieren";
 
     public RelayCommand QuickAddCommand { get; }
@@ -163,6 +167,7 @@ public class TodayViewModel : ObservableObject
     public RelayCommand SyncAllSegmentsCommand { get; }
     public RelayCommand ShowCurrentTasksCommand { get; }
     public RelayCommand ShowCompletedTasksCommand { get; }
+    public RelayCommand TestOutlookConnectionCommand { get; }
 
     public RelayCommand<TaskItem> SelectTaskCommand { get; }
     public RelayCommand<TaskItem> StartTaskCommand { get; }
@@ -202,6 +207,7 @@ public class TodayViewModel : ObservableObject
         SyncAllSegmentsCommand = new RelayCommand(SyncAllSegments, () => SelectedTask != null && AllowMultiDaySegments);
         ShowCurrentTasksCommand = new RelayCommand(() => ShowCompletedTasks = false);
         ShowCompletedTasksCommand = new RelayCommand(() => ShowCompletedTasks = true);
+        TestOutlookConnectionCommand = new RelayCommand(TestOutlookConnection);
 
         SelectTaskCommand = new RelayCommand<TaskItem>(task => SelectedTask = task, task => task != null);
         StartTaskCommand = new RelayCommand<TaskItem>(task => OnCardTaskAction(task, _tasks.StartTimer));
@@ -419,7 +425,8 @@ public class TodayViewModel : ObservableObject
             if (!ok)
             {
                 var errorCode = "TT-OUTLOOK-SYNC-001";
-                StatusMessage = $"Outlook Sync fehlgeschlagen ({errorCode}): {_tasks.LastError}";
+                var hResultHex = ExtractHResultHex(_tasks.LastError);
+                StatusMessage = $"Outlook Sync fehlgeschlagen. Details in logs.txt: {hResultHex}";
                 MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
@@ -429,8 +436,8 @@ public class TodayViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            var errorCode = "TT-OUTLOOK-SYNC-500";
-            StatusMessage = $"Outlook Sync Ausnahme ({errorCode}): {ex.Message}";
+            var hResultHex = $"0x{ex.HResult:X8}";
+            StatusMessage = $"Outlook Sync fehlgeschlagen. Details in logs.txt: {hResultHex}";
             MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -443,8 +450,8 @@ public class TodayViewModel : ObservableObject
             var ok = _tasks.DeleteOutlookBlocker(SelectedTask);
             if (!ok)
             {
-                var errorCode = "TT-OUTLOOK-DEL-001";
-                StatusMessage = $"Outlook Delete fehlgeschlagen ({errorCode}): {_tasks.LastError}";
+                var hResultHex = ExtractHResultHex(_tasks.LastError);
+                StatusMessage = $"Outlook Delete fehlgeschlagen. Details in logs.txt: {hResultHex}";
                 MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
@@ -454,10 +461,37 @@ public class TodayViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            var errorCode = "TT-OUTLOOK-DEL-500";
-            StatusMessage = $"Outlook Delete Ausnahme ({errorCode}): {ex.Message}";
+            var hResultHex = $"0x{ex.HResult:X8}";
+            StatusMessage = $"Outlook Delete fehlgeschlagen. Details in logs.txt: {hResultHex}";
             MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+
+    private void TestOutlookConnection()
+    {
+        var ok = _tasks.TestOutlookConnection();
+        if (ok)
+        {
+            StatusMessage = "Outlook Verbindungstest erfolgreich.";
+            MessageBox.Show(StatusMessage, "Outlook Test", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var hex = ExtractHResultHex(_tasks.LastError);
+        StatusMessage = $"Outlook Test fehlgeschlagen. Details in logs.txt: {hex}";
+        MessageBox.Show(StatusMessage, "Outlook Test", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
+
+    private static string ExtractHResultHex(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error)) return "0x00000000";
+        var marker = "0x";
+        var idx = error.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return "0x00000000";
+        var end = idx + 2;
+        while (end < error.Length && Uri.IsHexDigit(error[end])) end++;
+        return error[idx..end];
     }
 
     private void SaveManualDay()

@@ -35,7 +35,8 @@
                         <TextBlock Grid.Column="2" Text="{Binding ComputedEndText, StringFormat=Ende: {0}}" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
                     </Grid>
 
-                    <TextBlock Text="{Binding DateTimeFormat, StringFormat=Format: {0}}" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding DateTimeFormat, StringFormat=Format: {0}}" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding OutlookSyncHint}" Foreground="#FCA5A5" Margin="0,0,0,8"/>
 
                     <WrapPanel>
                         <Button Content="Speichern" Width="94" Command="{Binding SaveCommand}"/>
@@ -47,6 +48,7 @@
                     <WrapPanel>
                         <Button Content="Outlook Blocker sync" Width="180" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SyncOutlookBlockerCommand}" IsEnabled="{Binding OutlookBlockerCanSync}"/>
                         <Button Content="Outlook Blocker löschen" Width="180" Style="{StaticResource DangerButtonStyle}" Command="{Binding DeleteOutlookBlockerCommand}"/>
+                        <Button Content="Outlook Verbindung testen" Width="200" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding TestOutlookConnectionCommand}"/>
                     </WrapPanel>
                 </StackPanel>
             </Border>
