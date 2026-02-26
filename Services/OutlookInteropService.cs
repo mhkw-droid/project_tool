@@ -143,17 +143,8 @@ public class OutlookInteropService
 
     private static Outlook.Application? CreateOrAttachOutlook(Type outlookType)
     {
-        try
-        {
-            var running = Marshal.GetActiveObject("Outlook.Application");
-            if (running is Outlook.Application runningApp)
-                return runningApp;
-        }
-        catch
-        {
-            // ignore and fallback to creating app
-        }
-
+        // Marshal.GetActiveObject is not available on all target profiles.
+        // We therefore create/connect via COM activation directly.
         var created = Activator.CreateInstance(outlookType);
         return created as Outlook.Application;
     }

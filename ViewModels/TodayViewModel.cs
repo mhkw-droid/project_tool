@@ -424,7 +424,6 @@ public class TodayViewModel : ObservableObject
             var ok = _tasks.SyncOutlookBlocker(SelectedTask);
             if (!ok)
             {
-                var errorCode = "TT-OUTLOOK-SYNC-001";
                 var hResultHex = ExtractHResultHex(_tasks.LastError);
                 StatusMessage = $"Outlook Sync fehlgeschlagen. Details in logs.txt: {hResultHex}";
                 MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
