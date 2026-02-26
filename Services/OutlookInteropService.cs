@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Threading;
 using Outlook = Microsoft.Office.Interop.Outlook;
 
