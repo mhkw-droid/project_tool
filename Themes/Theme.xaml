@@ -283,4 +283,14 @@
         <Setter Property="Padding" Value="14"/>
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
+
+    <Style x:Key="BadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="#1E293B"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="Margin" Value="0,0,6,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
 </ResourceDictionary>
