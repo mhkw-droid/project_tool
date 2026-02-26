@@ -3,6 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Visibility="{Binding SelectedTask, Converter={StaticResource NullToVisibilityConverter}}"
              Background="{StaticResource BgBrush}">
+    <UserControl.Resources>
+        <DataTemplate x:Key="TwoDigitNumberTemplate">
+            <TextBlock Text="{Binding StringFormat={}{0:00}}" Foreground="{StaticResource TextBrush}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="DurationNumberTemplate">
+            <TextBlock Text="{Binding StringFormat={}{0} min}" Foreground="{StaticResource TextBrush}"/>
+        </DataTemplate>
+    </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" Background="Transparent">
         <StackPanel>
             <Border Style="{StaticResource CardStyle}">
@@ -20,8 +28,8 @@
                             <ColumnDefinition Width="70"/>
                         </Grid.ColumnDefinitions>
                         <DatePicker Grid.Column="0" SelectedDate="{Binding SelectedStartDate}"/>
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding Hours}" SelectedItem="{Binding SelectedHour}" Margin="6,2,6,8"/>
-                        <ComboBox Grid.Column="2" ItemsSource="{Binding Minutes}" SelectedItem="{Binding SelectedMinute}" Margin="0,2,0,8"/>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding Hours}" SelectedItem="{Binding SelectedHour}" ItemTemplate="{StaticResource TwoDigitNumberTemplate}" Margin="6,2,6,8"/>
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding Minutes}" SelectedItem="{Binding SelectedMinute}" ItemTemplate="{StaticResource TwoDigitNumberTemplate}" Margin="0,2,0,8"/>
                     </Grid>
 
                     <Grid>
@@ -30,7 +38,7 @@
                             <ColumnDefinition Width="120"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <ComboBox Grid.Column="0" ItemsSource="{Binding DurationOptions}" SelectedItem="{Binding SelectedDurationMinutes}"/>
+                        <ComboBox Grid.Column="0" ItemsSource="{Binding DurationOptions}" SelectedItem="{Binding SelectedDurationMinutes}" ItemTemplate="{StaticResource DurationNumberTemplate}"/>
                         <TextBox Grid.Column="1" Text="{Binding ManualDurationMinutesText, UpdateSourceTrigger=PropertyChanged}" Margin="8,2,8,8"/>
                         <TextBlock Grid.Column="2" Text="{Binding ComputedEndText, StringFormat=Ende: {0}}" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}"/>
                     </Grid>
@@ -41,7 +49,7 @@
                     <WrapPanel>
                         <Button Content="Speichern" Width="94" Command="{Binding SaveCommand}"/>
                         <Button Content="Erledigt" Width="94" Style="{StaticResource SuccessButtonStyle}" Command="{Binding DoneCommand}"/>
-                        <Button Content="Löschen" Width="94" Style="{StaticResource DangerButtonStyle}" Command="{Binding DeleteCommand}"/>
+                        <Button Content="Zurück zu Aktuell" Width="94" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ReopenCommand}"/>
                     </WrapPanel>
 
                     <TextBlock Text="{Binding OutlookBlockerButtonText}" Foreground="{StaticResource MutedTextBrush}"/>

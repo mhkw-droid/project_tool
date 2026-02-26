@@ -143,7 +143,7 @@ public class TodayViewModel : ObservableObject
 
     public RelayCommand QuickAddCommand { get; }
     public RelayCommand SaveCommand { get; }
-    public RelayCommand DeleteCommand { get; }
+    public RelayCommand ReopenCommand { get; }
     public RelayCommand DoneCommand { get; }
     public RelayCommand StartTimerCommand { get; }
     public RelayCommand PauseTimerCommand { get; }
@@ -183,7 +183,7 @@ public class TodayViewModel : ObservableObject
 
         QuickAddCommand = new RelayCommand(QuickAdd);
         SaveCommand = new RelayCommand(SaveTask, () => SelectedTask != null);
-        DeleteCommand = new RelayCommand(DeleteTask, () => SelectedTask != null);
+        ReopenCommand = new RelayCommand(ReopenTask, () => SelectedTask?.Status == TaskStatus.Done);
         DoneCommand = new RelayCommand(MarkDone, () => SelectedTask != null);
         StartTimerCommand = new RelayCommand(() => WithTask(_tasks.StartTimer), () => SelectedTask != null);
         PauseTimerCommand = new RelayCommand(() => WithTask(_tasks.PauseTimer), () => SelectedTask != null);
@@ -226,7 +226,7 @@ public class TodayViewModel : ObservableObject
     private void RaiseCommandStates()
     {
         SaveCommand.RaiseCanExecuteChanged();
-        DeleteCommand.RaiseCanExecuteChanged();
+        ReopenCommand.RaiseCanExecuteChanged();
         DoneCommand.RaiseCanExecuteChanged();
         StartTimerCommand.RaiseCanExecuteChanged();
         PauseTimerCommand.RaiseCanExecuteChanged();
@@ -410,7 +410,7 @@ public class TodayViewModel : ObservableObject
         LoadSegments();
     }
 
-    private void DeleteTask() { if (SelectedTask == null) return; _tasks.DeleteTask(SelectedTask); SelectedTask = null; Load(); }
+    private void ReopenTask() { if (SelectedTask == null) return; _tasks.MarkPlanned(SelectedTask); Load(); }
     private void MarkDone() { if (SelectedTask == null) return; _tasks.MarkDone(SelectedTask); Load(); }
 
     private void SyncOutlookBlocker()

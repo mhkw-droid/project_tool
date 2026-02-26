@@ -1,14 +1,17 @@
-using System.Reflection;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace TaskTool.Services;
 
 public class OutlookInteropService
 {
+    private const int OlAppointmentItem = 1;
+    private const int OlFolderCalendar = 9;
+    private const int OlBusy = 2;
+
     private readonly LoggerService _logger;
     private readonly SettingsService _settings;
 
@@ -37,42 +40,56 @@ public class OutlookInteropService
                 if (outlookType == null)
                     return (false, existingEntryId ?? string.Empty, "Outlook nicht installiert (ProgID nicht gefunden).");
 
-                var app = CreateOrAttachOutlook(outlookType);
-                if (app == null)
-                    return (false, existingEntryId ?? string.Empty, "Outlook konnte nicht gestartet/verbunden werden.");
+                object? app = null;
+                object? ns = null;
+                object? item = null;
 
-                var ns = app.GetNamespace("MAPI");
-                TryLogon(ns);
-
-                var calendar = ns.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderCalendar);
-                if (calendar == null)
-                    return (false, existingEntryId ?? string.Empty, "Standard-Kalender nicht verfügbar.");
-
-                Outlook.AppointmentItem item;
-                if (!string.IsNullOrWhiteSpace(existingEntryId))
+                try
                 {
-                    var existing = ns.GetItemFromID(existingEntryId);
-                    if (existing is not Outlook.AppointmentItem existingItem)
-                        return (false, existingEntryId ?? string.Empty, "Outlook Entry ist kein Terminobjekt.");
-                    item = existingItem;
+                    app = CreateOrAttachOutlook(outlookType);
+                    if (app == null)
+                        return (false, existingEntryId ?? string.Empty, "Outlook konnte nicht gestartet/verbunden werden.");
+
+                    dynamic appDyn = app;
+                    ns = appDyn.GetNamespace("MAPI");
+                    TryLogon(ns);
+
+                    dynamic nsDyn = ns!;
+                    _ = nsDyn.GetDefaultFolder(OlFolderCalendar);
+
+                    if (!string.IsNullOrWhiteSpace(existingEntryId))
+                    {
+                        item = nsDyn.GetItemFromID(existingEntryId);
+                    }
+                    else
+                    {
+                        item = appDyn.CreateItem(OlAppointmentItem);
+                    }
+
+                    if (item == null)
+                        return (false, existingEntryId ?? string.Empty, "Outlook Terminobjekt konnte nicht erstellt werden.");
+
+                    dynamic itemDyn = item;
+                    itemDyn.Subject = $"Fokus: {title}";
+                    itemDyn.Body = body ?? string.Empty;
+                    itemDyn.Start = start;
+                    itemDyn.End = end;
+                    itemDyn.BusyStatus = OlBusy;
+                    itemDyn.ReminderSet = false;
+                    itemDyn.Categories = string.IsNullOrWhiteSpace(_settings.Current.OutlookCategoryName)
+                        ? "FocusBlock"
+                        : _settings.Current.OutlookCategoryName;
+                    itemDyn.Save();
+
+                    var entryId = Convert.ToString(itemDyn.EntryID) ?? string.Empty;
+                    return (true, entryId, string.Empty);
                 }
-                else
+                finally
                 {
-                    item = (Outlook.AppointmentItem)app.CreateItem(Outlook.OlItemType.olAppointmentItem);
+                    SafeReleaseComObject(item);
+                    SafeReleaseComObject(ns);
+                    SafeReleaseComObject(app);
                 }
-
-                item.Subject = $"Fokus: {title}";
-                item.Body = body ?? string.Empty;
-                item.Start = start;
-                item.End = end;
-                item.BusyStatus = Outlook.OlBusyStatus.olBusy;
-                item.ReminderSet = false;
-                item.Categories = string.IsNullOrWhiteSpace(_settings.Current.OutlookCategoryName)
-                    ? "FocusBlock"
-                    : _settings.Current.OutlookCategoryName;
-                item.Save();
-
-                return (true, item.EntryID ?? string.Empty, string.Empty);
             });
         }
         catch (Exception ex)
@@ -95,19 +112,35 @@ public class OutlookInteropService
                 if (outlookType == null)
                     return (false, "Outlook nicht installiert (ProgID nicht gefunden).");
 
-                var app = CreateOrAttachOutlook(outlookType);
-                if (app == null)
-                    return (false, "Outlook konnte nicht gestartet/verbunden werden.");
+                object? app = null;
+                object? ns = null;
+                object? item = null;
 
-                var ns = app.GetNamespace("MAPI");
-                TryLogon(ns);
+                try
+                {
+                    app = CreateOrAttachOutlook(outlookType);
+                    if (app == null)
+                        return (false, "Outlook konnte nicht gestartet/verbunden werden.");
 
-                var item = ns.GetItemFromID(entryId);
-                if (item is not Outlook.AppointmentItem appt)
-                    return (false, "Outlook Entry ist kein Terminobjekt.");
+                    dynamic appDyn = app;
+                    ns = appDyn.GetNamespace("MAPI");
+                    TryLogon(ns);
 
-                appt.Delete();
-                return (true, string.Empty);
+                    dynamic nsDyn = ns!;
+                    item = nsDyn.GetItemFromID(entryId);
+                    if (item == null)
+                        return (false, "Outlook Entry nicht gefunden.");
+
+                    dynamic itemDyn = item;
+                    itemDyn.Delete();
+                    return (true, string.Empty);
+                }
+                finally
+                {
+                    SafeReleaseComObject(item);
+                    SafeReleaseComObject(ns);
+                    SafeReleaseComObject(app);
+                }
             });
         }
         catch (Exception ex)
@@ -141,23 +174,44 @@ public class OutlookInteropService
         }
     }
 
-    private static Outlook.Application? CreateOrAttachOutlook(Type outlookType)
-    {
-        // Marshal.GetActiveObject is not available on all target profiles.
-        // We therefore create/connect via COM activation directly.
-        var created = Activator.CreateInstance(outlookType);
-        return created as Outlook.Application;
-    }
-
-    private static void TryLogon(Outlook.NameSpace ns)
+    private static object? CreateOrAttachOutlook(Type outlookType)
     {
         try
         {
-            ns.Logon("", "", Missing.Value, Missing.Value);
+            return Marshal.GetActiveObject("Outlook.Application");
+        }
+        catch
+        {
+            return Activator.CreateInstance(outlookType);
+        }
+    }
+
+    private static void TryLogon(object nameSpace)
+    {
+        try
+        {
+            dynamic ns = nameSpace;
+            ns.Logon("", "", false, false);
         }
         catch
         {
             // Often already logged on; safe to continue.
+        }
+    }
+
+    private static void SafeReleaseComObject(object? comObject)
+    {
+        if (comObject == null)
+            return;
+
+        try
+        {
+            if (Marshal.IsComObject(comObject))
+                Marshal.FinalReleaseComObject(comObject);
+        }
+        catch
+        {
+            // best effort cleanup only
         }
     }
 
@@ -193,8 +247,11 @@ public class OutlookInteropService
 
     private static string BuildUserFacingOutlookError(Exception ex)
     {
-        if (ex is FileNotFoundException)
-            return "Outlook-Komponente nicht gefunden. Bitte Outlook-Installation und Office-Reparatur prüfen.";
+        if (ex is FileNotFoundException || ex is TypeLoadException)
+            return "Outlook-Interop konnte nicht geladen werden. Bitte Office/Outlook reparieren und App neu starten.";
+
+        if (ex.Message.Contains("office, Version=", StringComparison.OrdinalIgnoreCase))
+            return "Office Interop Assembly wurde nicht gefunden. Bitte Office/Outlook reparieren.";
 
         if (ex is COMException comEx)
         {

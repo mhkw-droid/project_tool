@@ -104,6 +104,12 @@ VALUES ($id,$title,$desc,$url,$start,$end,$status,$priority,$tags,$entry,$ticket
         UpdateTask(task);
     }
 
+    public void MarkPlanned(TaskItem task)
+    {
+        task.Status = TaskStatus.Planned;
+        UpdateTask(task);
+    }
+
     public void StartTimer(TaskItem task)
     {
         task.Status = TaskStatus.Running;
