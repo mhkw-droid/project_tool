@@ -11,7 +11,7 @@ public class WeekViewModel : ObservableObject
     private readonly WorkDayService _workDays;
     private readonly SettingsService _settings;
 
-    public string Title => "Woche";
+    public string Title => "Kalender";
 
     private DateTime _weekStart;
     public DateTime WeekStart
@@ -184,6 +184,8 @@ public class WeekViewModel : ObservableObject
 
     private static string Fmt(int minutes) => $"{minutes / 60}h {Math.Abs(minutes % 60):00}m";
     private static DateTime StartOfWeek(DateTime date) => date.Date.AddDays(-((7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7));
+
+    public void Refresh() => LoadWeek();
 
     public override string ToString() => Title;
 }

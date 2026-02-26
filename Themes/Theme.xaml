@@ -194,6 +194,67 @@
         <Setter Property="Margin" Value="0,0,8,8"/>
     </Style>
 
+    <Style x:Key="SegmentedToggleBaseStyle" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="Background" Value="#111827"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="MinWidth" Value="170"/>
+        <Setter Property="Padding" Value="14,4"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="0">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="#64748B"/></Trigger>
+                        <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="#0B1220"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#9CA3AF"/><Setter Property="Background" Value="#1F2937"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentedLeftToggleStyle" TargetType="ToggleButton" BasedOn="{StaticResource SegmentedToggleBaseStyle}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="10,0,0,10">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="#64748B"/></Trigger>
+                        <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="#0B1220"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#9CA3AF"/><Setter Property="Background" Value="#1F2937"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentedRightToggleStyle" TargetType="ToggleButton" BasedOn="{StaticResource SegmentedToggleBaseStyle}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,10,10,0">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="#64748B"/></Trigger>
+                        <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="#0B1220"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#9CA3AF"/><Setter Property="Background" Value="#1F2937"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="BadgeStyle" TargetType="Border">
         <Setter Property="Background" Value="#334155"/>
         <Setter Property="CornerRadius" Value="7"/>

@@ -8,6 +8,7 @@ public class MainViewModel : ObservableObject
 {
     public ObservableCollection<object> NavigationItems { get; }
     public TodayViewModel TodayViewModel { get; }
+    private readonly WeekViewModel _weekViewModel;
 
     private object _selectedView;
     public object SelectedView
@@ -17,6 +18,10 @@ public class MainViewModel : ObservableObject
         {
             if (Set(ref _selectedView, value))
             {
+                if (_selectedView is WeekViewModel)
+                {
+                    _weekViewModel.Refresh();
+                }
                 Raise(nameof(IsTodaySelected));
             }
         }
@@ -27,11 +32,11 @@ public class MainViewModel : ObservableObject
     public MainViewModel(TaskService taskService, WorkDayService workDayService, SettingsService settingsService, NotificationService notifications, LoggerService logger)
     {
         TodayViewModel = new TodayViewModel(taskService, workDayService, settingsService);
-        var week = new WeekViewModel(taskService, workDayService, settingsService);
+        _weekViewModel = new WeekViewModel(taskService, workDayService, settingsService);
         var reports = new ReportsViewModel(taskService, workDayService, settingsService);
         var settings = new SettingsViewModel(settingsService);
 
-        NavigationItems = new ObservableCollection<object> { TodayViewModel, week, reports, settings };
+        NavigationItems = new ObservableCollection<object> { TodayViewModel, _weekViewModel, reports, settings };
         _selectedView = TodayViewModel;
     }
 }
