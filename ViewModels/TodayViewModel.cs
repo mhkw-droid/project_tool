@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using TaskTool.Infrastructure;
 using TaskTool.Models;
+using TaskStatus = TaskTool.Models.TaskStatus;
 using TaskTool.Services;
 
 namespace TaskTool.ViewModels;
