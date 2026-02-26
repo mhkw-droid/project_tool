@@ -66,6 +66,23 @@ public class TodayViewModel : ObservableObject
         set { if (Set(ref _completedTaskSearchText, value)) ApplyTaskFilters(); }
     }
 
+    private bool _showCompletedTasks;
+    public bool ShowCompletedTasks
+    {
+        get => _showCompletedTasks;
+        set
+        {
+            if (Set(ref _showCompletedTasks, value))
+            {
+                Raise(nameof(ShowCurrentTasks));
+                Raise(nameof(ShowCompletedTaskList));
+            }
+        }
+    }
+
+    public bool ShowCurrentTasks => !ShowCompletedTasks;
+    public bool ShowCompletedTaskList => ShowCompletedTasks;
+
     private string _statusMessage = string.Empty;
     public string StatusMessage { get => _statusMessage; set => Set(ref _statusMessage, value); }
 
@@ -144,6 +161,8 @@ public class TodayViewModel : ObservableObject
     public RelayCommand SetDayTypeUlCommand { get; }
     public RelayCommand AddSegmentCommand { get; }
     public RelayCommand SyncAllSegmentsCommand { get; }
+    public RelayCommand ShowCurrentTasksCommand { get; }
+    public RelayCommand ShowCompletedTasksCommand { get; }
 
     public RelayCommand<TaskItem> SelectTaskCommand { get; }
     public RelayCommand<TaskItem> StartTaskCommand { get; }
@@ -181,6 +200,8 @@ public class TodayViewModel : ObservableObject
         SetDayTypeUlCommand = new RelayCommand(() => SetDayType("UL"));
         AddSegmentCommand = new RelayCommand(AddSegment, () => SelectedTask != null && AllowMultiDaySegments);
         SyncAllSegmentsCommand = new RelayCommand(SyncAllSegments, () => SelectedTask != null && AllowMultiDaySegments);
+        ShowCurrentTasksCommand = new RelayCommand(() => ShowCompletedTasks = false);
+        ShowCompletedTasksCommand = new RelayCommand(() => ShowCompletedTasks = true);
 
         SelectTaskCommand = new RelayCommand<TaskItem>(task => SelectedTask = task, task => task != null);
         StartTaskCommand = new RelayCommand<TaskItem>(task => OnCardTaskAction(task, _tasks.StartTimer));
@@ -192,6 +213,7 @@ public class TodayViewModel : ObservableObject
         _clock.Tick += (_, _) => UpdateTimerDisplay();
         _clock.Start();
 
+        ShowCompletedTasks = false;
         Load();
     }
 

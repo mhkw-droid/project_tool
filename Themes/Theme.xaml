@@ -3,6 +3,7 @@
     <Color x:Key="AppBackground">#111827</Color>
     <Color x:Key="Surface">#1F2937</Color>
     <Color x:Key="Surface2">#0F172A</Color>
+    <Color x:Key="SurfaceAlt">#0F172A</Color>
     <Color x:Key="Border">#334155</Color>
     <Color x:Key="TextPrimary">#E5E7EB</Color>
     <Color x:Key="TextSecondary">#94A3B8</Color>
@@ -13,6 +14,7 @@
     <SolidColorBrush x:Key="BgBrush" Color="{StaticResource AppBackground}"/>
     <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Surface}"/>
     <SolidColorBrush x:Key="CardBrush" Color="{StaticResource Surface2}"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="{StaticResource SurfaceAlt}"/>
     <SolidColorBrush x:Key="BorderBrushColor" Color="{StaticResource Border}"/>
     <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextPrimary}"/>
     <SolidColorBrush x:Key="MutedTextBrush" Color="{StaticResource TextSecondary}"/>
@@ -33,6 +35,9 @@
     <Style x:Key="TextBoxStyle" TargetType="TextBox">
         <Setter Property="Background" Value="#0B1220"/>
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}"/>
+        <Setter Property="SelectionTextBrush" Value="White"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="10,6"/>
@@ -87,6 +92,9 @@
     <Style TargetType="DatePickerTextBox">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         <Setter Property="Background" Value="#0B1220"/>
+        <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}"/>
+        <Setter Property="SelectionTextBrush" Value="White"/>
     </Style>
 
     <Style TargetType="TabControl">
@@ -169,7 +177,7 @@
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Trigger>
+                        <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="#0F172A"/><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="BorderThickness" Value="2"/></Trigger>
                         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.6"/></Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -179,6 +187,11 @@
 
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="Margin" Value="0,0,8,8"/>
     </Style>
 
     <Style x:Key="BadgeStyle" TargetType="Border">

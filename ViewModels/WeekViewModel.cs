@@ -52,6 +52,7 @@ public class WeekViewModel : ObservableObject
     public RelayCommand NextWeekCommand { get; }
     public RelayCommand CurrentWeekCommand { get; }
     public RelayCommand<WeekDayGroup> SelectDayCommand { get; }
+    public RelayCommand<TaskItem> OpenTaskCommand { get; }
     public RelayCommand SetDayTypeNormalCommand { get; }
     public RelayCommand SetDayTypeUlCommand { get; }
     public RelayCommand SetDayTypeAmCommand { get; }
@@ -69,6 +70,7 @@ public class WeekViewModel : ObservableObject
         NextWeekCommand = new RelayCommand(() => { WeekStart = WeekStart.AddDays(7); LoadWeek(); });
         CurrentWeekCommand = new RelayCommand(() => { WeekStart = StartOfWeek(DateTime.Today); LoadWeek(); });
         SelectDayCommand = new RelayCommand<WeekDayGroup>(d => SelectedDay = d, d => d != null);
+        OpenTaskCommand = new RelayCommand<TaskItem>(OpenTask, t => t != null);
         SetDayTypeNormalCommand = new RelayCommand(() => SetDayType("Normal"), () => SelectedDay != null);
         SetDayTypeUlCommand = new RelayCommand(() => SetDayType("UL"), () => SelectedDay != null);
         SetDayTypeAmCommand = new RelayCommand(() => SetDayType("AM"), () => SelectedDay != null);
@@ -76,6 +78,17 @@ public class WeekViewModel : ObservableObject
         ToggleBrCommand = new RelayCommand(() => { if (SelectedDay == null) return; SelectedDay.IsBr = !SelectedDay.IsBr; SaveSelectedDay(); }, () => SelectedDay != null);
 
         LoadWeek();
+    }
+
+    private void OpenTask(TaskItem? task)
+    {
+        if (task == null) return;
+        var main = ServiceLocator.MainViewModel;
+        main.SelectedView = main.TodayViewModel;
+        var match = main.TodayViewModel.CurrentTasks.FirstOrDefault(t => t.Id == task.Id)
+                    ?? main.TodayViewModel.CompletedTasks.FirstOrDefault(t => t.Id == task.Id)
+                    ?? task;
+        main.TodayViewModel.SelectedTask = match;
     }
 
     private void SetDayType(string type)
@@ -91,16 +104,18 @@ public class WeekViewModel : ObservableObject
         _workDays.SetDayMarkers(SelectedDay.DayDate.ToString("yyyy-MM-dd"), SelectedDay.DayType, SelectedDay.IsBr, SelectedDay.IsHo);
         var selectedDate = SelectedDay.DayDate;
         LoadWeek();
-        SelectedDay = Days.FirstOrDefault(d => d.DayDate.Date == selectedDate.Date);
+        SelectedDay = Days.FirstOrDefault(d => d.DayDate.Date == selectedDate.Date) ?? Days.FirstOrDefault();
     }
 
     private void LoadWeek()
     {
+        var previousSelectionDate = SelectedDay?.DayDate;
+
         Days.Clear();
         var from = WeekStart;
         var to = WeekStart.AddDays(7);
 
-        var weekTasks = _tasks.GetTasksForRange(from, to);
+        var allTasks = _tasks.GetAllTasks();
         var workDays = _workDays.GetWorkDaysInRange(from, to.AddDays(-1)).ToDictionary(w => w.Day, w => w);
 
         for (int i = 0; i < 7; i++)
@@ -116,7 +131,10 @@ public class WeekViewModel : ObservableObject
             var target = (wd.DayType == "UL" || wd.DayType == "AM") ? 0 : _settings.Current.GetTargetMinutes(day.DayOfWeek);
             var overtime = net - target;
 
-            var dayTasks = weekTasks.Where(t => t.StartLocal.HasValue && t.StartLocal.Value.Date == day.Date).OrderBy(t => t.StartLocal).ToList();
+            var dayTasks = allTasks
+                .Where(t => IsTaskOnDay(t, day))
+                .OrderBy(t => t.StartLocal ?? t.CreatedUtc)
+                .ToList();
 
             Days.Add(new WeekDayGroup
             {
@@ -130,8 +148,38 @@ public class WeekViewModel : ObservableObject
             });
         }
 
-        if (SelectedDay == null)
-            SelectedDay = Days.FirstOrDefault();
+        SelectedDay = ResolveSelectedDay(previousSelectionDate);
+    }
+
+    private WeekDayGroup ResolveSelectedDay(DateTime? previousSelectionDate)
+    {
+        if (previousSelectionDate.HasValue)
+        {
+            var existing = Days.FirstOrDefault(d => d.DayDate.Date == previousSelectionDate.Value.Date);
+            if (existing != null) return existing;
+        }
+
+        var today = DateTime.Today;
+        var containsToday = today.Date >= WeekStart.Date && today.Date <= WeekStart.AddDays(6).Date;
+        if (containsToday)
+        {
+            return Days.FirstOrDefault(d => d.DayDate.Date == today.Date) ?? Days.First();
+        }
+
+        return Days.First();
+    }
+
+    private static bool IsTaskOnDay(TaskItem task, DateTime day)
+    {
+        if (!task.StartLocal.HasValue) return false;
+
+        var dayStart = day.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        var start = task.StartLocal.Value;
+        var end = task.EndLocal ?? start;
+
+        return start < dayEnd && end >= dayStart;
     }
 
     private static string Fmt(int minutes) => $"{minutes / 60}h {Math.Abs(minutes % 60):00}m";
