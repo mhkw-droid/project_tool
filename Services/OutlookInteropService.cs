@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -201,10 +202,22 @@ public class OutlookInteropService
 
     private static string BuildUserFacingOutlookError(Exception ex)
     {
-        if (ex is COMException comEx)
-            return $"COM Fehler 0x{comEx.HResult:X8}: {comEx.Message}";
+        if (ex is FileNotFoundException)
+            return "Outlook-Komponente nicht gefunden. Bitte Outlook-Installation und Office-Reparatur prüfen.";
 
-        return ex.Message;
+        if (ex is COMException comEx)
+        {
+            if ((uint)comEx.HResult == 0x800401E3)
+                return $"COM Fehler 0x{comEx.HResult:X8}: Kein aktives Outlook-Profil verfügbar.";
+
+            if ((uint)comEx.HResult == 0x80070002)
+                return $"COM Fehler 0x{comEx.HResult:X8}: Outlook-Dateien/Registrierung nicht gefunden.";
+
+            return $"COM Fehler 0x{comEx.HResult:X8}: {comEx.Message}";
+        }
+
+        var message = string.IsNullOrWhiteSpace(ex.Message) ? "Unbekannter Outlook Fehler." : ex.Message;
+        return $"{message} (0x{ex.HResult:X8})";
     }
 
     private static string BuildOutlookExceptionLog(string operation, Exception ex, DateTime? start, DateTime? end)
