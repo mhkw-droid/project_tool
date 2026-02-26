@@ -15,7 +15,8 @@ public class TodayViewModel : ObservableObject
     private readonly DispatcherTimer _clock;
 
     public string Title => "Heute";
-    public ObservableCollection<TaskItem> Tasks { get; } = new();
+    public ObservableCollection<TaskItem> CurrentTasks { get; } = new();
+    public ObservableCollection<TaskItem> CompletedTasks { get; } = new();
     public ObservableCollection<BreakEditRow> BreakRows { get; } = new();
     public ObservableCollection<TaskSegment> Segments { get; } = new();
 
@@ -49,6 +50,20 @@ public class TodayViewModel : ObservableObject
 
     private string _quickAddText = string.Empty;
     public string QuickAddText { get => _quickAddText; set => Set(ref _quickAddText, value); }
+
+    private string _taskSearchText = string.Empty;
+    public string TaskSearchText
+    {
+        get => _taskSearchText;
+        set { if (Set(ref _taskSearchText, value)) ApplyTaskFilters(); }
+    }
+
+    private string _completedTaskSearchText = string.Empty;
+    public string CompletedTaskSearchText
+    {
+        get => _completedTaskSearchText;
+        set { if (Set(ref _completedTaskSearchText, value)) ApplyTaskFilters(); }
+    }
 
     private string _statusMessage = string.Empty;
     public string StatusMessage { get => _statusMessage; set => Set(ref _statusMessage, value); }
@@ -126,8 +141,6 @@ public class TodayViewModel : ObservableObject
     public RelayCommand SetDayTypeNormalCommand { get; }
     public RelayCommand SetDayTypeAmCommand { get; }
     public RelayCommand SetDayTypeUlCommand { get; }
-    public RelayCommand ToggleBrCommand { get; }
-    public RelayCommand ToggleHoCommand { get; }
     public RelayCommand AddSegmentCommand { get; }
     public RelayCommand SyncAllSegmentsCommand { get; }
 
@@ -165,8 +178,6 @@ public class TodayViewModel : ObservableObject
         SetDayTypeNormalCommand = new RelayCommand(() => SetDayType("Normal"));
         SetDayTypeAmCommand = new RelayCommand(() => SetDayType("AM"));
         SetDayTypeUlCommand = new RelayCommand(() => SetDayType("UL"));
-        ToggleBrCommand = new RelayCommand(() => { IsBr = !IsBr; SaveMarkers(); });
-        ToggleHoCommand = new RelayCommand(() => { IsHo = !IsHo; SaveMarkers(); });
         AddSegmentCommand = new RelayCommand(AddSegment, () => SelectedTask != null && AllowMultiDaySegments);
         SyncAllSegmentsCommand = new RelayCommand(SyncAllSegments, () => SelectedTask != null && AllowMultiDaySegments);
 
@@ -203,12 +214,11 @@ public class TodayViewModel : ObservableObject
     private void Load()
     {
         var selectedId = SelectedTask?.Id;
-        Tasks.Clear();
-        foreach (var task in _tasks.GetTasksForDay(DateTime.Today)) Tasks.Add(task);
+        ApplyTaskFilters();
 
         SelectedTask = selectedId.HasValue
-            ? Tasks.FirstOrDefault(t => t.Id == selectedId.Value) ?? Tasks.FirstOrDefault()
-            : Tasks.FirstOrDefault();
+            ? CurrentTasks.Concat(CompletedTasks).FirstOrDefault(t => t.Id == selectedId.Value)
+            : CurrentTasks.FirstOrDefault();
 
         var day = DateTime.Today.ToString("yyyy-MM-dd");
         var wd = _workDays.GetOrCreateDay(day);
@@ -238,6 +248,35 @@ public class TodayViewModel : ObservableObject
         StatusMessage = _tasks.LastError;
         RaiseCommandStates();
         UpdateTimerDisplay();
+    }
+
+    private void ApplyTaskFilters()
+    {
+        var all = _tasks.GetAllTasks();
+
+        var active = all.Where(t => t.Status != TaskStatus.Done).ToList();
+        if (!string.IsNullOrWhiteSpace(TaskSearchText))
+        {
+            var q = TaskSearchText.Trim();
+            active = active.Where(t => (t.Title?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                                     || (t.Description?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                                     || (t.TicketUrl?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+        }
+
+        var done = all.Where(t => t.Status == TaskStatus.Done).ToList();
+        if (!string.IsNullOrWhiteSpace(CompletedTaskSearchText))
+        {
+            var q = CompletedTaskSearchText.Trim();
+            done = done.Where(t => (t.Title?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (t.Description?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (t.TicketUrl?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+        }
+
+        CurrentTasks.Clear();
+        foreach (var t in active) CurrentTasks.Add(t);
+
+        CompletedTasks.Clear();
+        foreach (var t in done) CompletedTasks.Add(t);
     }
 
     private int CalculateMonthOvertime()
@@ -298,7 +337,9 @@ public class TodayViewModel : ObservableObject
         _tasks.CreateTask(task);
         QuickAddText = string.Empty;
         Load();
-        SelectedTask = Tasks.FirstOrDefault(t => t.Id == task.Id) ?? task;
+        SelectedTask = CurrentTasks.FirstOrDefault(t => t.Id == task.Id)
+                    ?? CompletedTasks.FirstOrDefault(t => t.Id == task.Id)
+                    ?? task;
     }
 
     private void SaveTask()
@@ -346,19 +387,54 @@ public class TodayViewModel : ObservableObject
     private void SyncOutlookBlocker()
     {
         if (SelectedTask == null || !TryBuildStart(out var start)) return;
-        SelectedTask.StartLocal = start;
-        SelectedTask.EndLocal = start.AddMinutes(GetDurationMinutes());
-        var ok = _tasks.SyncOutlookBlocker(SelectedTask);
-        StatusMessage = ok ? "Outlook Blocker synchronisiert." : _tasks.LastError;
-        Load();
+
+        try
+        {
+            SelectedTask.StartLocal = start;
+            SelectedTask.EndLocal = start.AddMinutes(GetDurationMinutes());
+            var ok = _tasks.SyncOutlookBlocker(SelectedTask);
+            if (!ok)
+            {
+                var errorCode = "TT-OUTLOOK-SYNC-001";
+                StatusMessage = $"Outlook Sync fehlgeschlagen ({errorCode}): {_tasks.LastError}";
+                MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            StatusMessage = "Outlook Blocker synchronisiert.";
+            Load();
+        }
+        catch (Exception ex)
+        {
+            var errorCode = "TT-OUTLOOK-SYNC-500";
+            StatusMessage = $"Outlook Sync Ausnahme ({errorCode}): {ex.Message}";
+            MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void DeleteOutlookBlocker()
     {
         if (SelectedTask == null) return;
-        var ok = _tasks.DeleteOutlookBlocker(SelectedTask);
-        StatusMessage = ok ? "Outlook Blocker gelöscht." : _tasks.LastError;
-        Load();
+        try
+        {
+            var ok = _tasks.DeleteOutlookBlocker(SelectedTask);
+            if (!ok)
+            {
+                var errorCode = "TT-OUTLOOK-DEL-001";
+                StatusMessage = $"Outlook Delete fehlgeschlagen ({errorCode}): {_tasks.LastError}";
+                MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            StatusMessage = "Outlook Blocker gelöscht.";
+            Load();
+        }
+        catch (Exception ex)
+        {
+            var errorCode = "TT-OUTLOOK-DEL-500";
+            StatusMessage = $"Outlook Delete Ausnahme ({errorCode}): {ex.Message}";
+            MessageBox.Show(StatusMessage, "Outlook Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void SaveManualDay()

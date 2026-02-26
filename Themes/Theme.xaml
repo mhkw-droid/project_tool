@@ -74,6 +74,31 @@
     </Style>
     <Style TargetType="DatePicker" BasedOn="{StaticResource DatePickerStyle}"/>
 
+
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="Background" Value="#0B1220"/>
+        <Style.Triggers>
+            <Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#1E3A8A"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#6B7280"/></Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="DatePickerTextBox">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="Background" Value="#0B1220"/>
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="Background" Value="#1F2937"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
+    </Style>
     <Style x:Key="CalendarStyle" TargetType="Calendar">
         <Setter Property="Background" Value="#0B1220"/>
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>

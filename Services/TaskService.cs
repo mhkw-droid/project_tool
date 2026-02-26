@@ -34,6 +34,18 @@ public class TaskService
         return list;
     }
 
+
+    public List<TaskItem> GetAllTasks()
+    {
+        var list = new List<TaskItem>();
+        using var conn = new SqliteConnection(_db.ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM tasks ORDER BY CASE WHEN status='Running' THEN 0 WHEN status='Planned' THEN 1 WHEN status='Done' THEN 2 ELSE 3 END, COALESCE(start_local, created_utc) DESC";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read()) list.Add(MapTask(reader));
+        return list;
+    }
     public List<TaskItem> GetTasksForRange(DateTime from, DateTime to)
     {
         var list = new List<TaskItem>();
